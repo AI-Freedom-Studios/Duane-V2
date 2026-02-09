@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole @default(MEMBER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  providerKeys   ProviderKey[]
+  socialAccounts SocialAccount[]
+  posts          Post[]
+  tasks          Task[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model ProviderKey {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  providerSlug     String   @map("provider_slug")
+  label            String
+  encryptedKey     String   @map("encrypted_key")
+  encryptedFields  String?  @map("encrypted_fields")
+  lastTestedAt     DateTime? @map("last_tested_at")
+  lastTestStatus   Boolean?  @map("last_test_status")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("provider_keys")
+}
+
+model SocialAccount {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  platform          String
+  platformAccountId String   @map("platform_account_id")
+  accountName       String   @map("account_name")
+  accountAvatar     String?  @map("account_avatar")
+  encryptedTokens   String   @map("encrypted_tokens")
+  isActive          Boolean  @default(true) @map("is_active")
+  lastSyncAt        DateTime? @map("last_sync_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postTargets PostTarget[]
+
+  @@unique([userId, platform, platformAccountId])
+  @@map("social_accounts")
+}
+
+model Post {
+  id           String     @id @default(uuid())
+  userId       String     @map("user_id")
+  content      String
+  mediaUrls    String[]   @map("media_urls")
+  status       PostStatus @default(DRAFT)
+  scheduledAt  DateTime?  @map("scheduled_at")
+  publishedAt  DateTime?  @map("published_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targets PostTarget[]
+
+  @@map("posts")
+}
+
+model PostTarget {
+  id              String  @id @default(uuid())
+  postId          String  @map("post_id")
+  socialAccountId String  @map("social_account_id")
+  platformPostId  String? @map("platform_post_id")
+  status          PostStatus @default(DRAFT)
+  errorMessage    String? @map("error_message")
+
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@map("post_targets")
+}
+
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  agents Agent[]
+
+  @@map("teams")
+}
+
+model Agent {
+  id             String   @id @default(uuid())
+  name           String
+  role           String
+  description    String   @default("")
+  promptTemplate String   @default("") @map("prompt_template")
+  tools          String[] @default([])
+  isOrchestrator Boolean  @default(false) @map("is_orchestrator")
+  teamId         String?  @map("team_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  team  Team?  @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  tasks Task[]
+
+  @@map("agents")
+}
+
+model Task {
+  id             String     @id @default(uuid())
+  title          String
+  description    String     @default("")
+  status         TaskStatus @default(PENDING)
+  assignedAgentId String?   @map("assigned_agent_id")
+  parentTaskId   String?    @map("parent_task_id")
+  result         String?
+  userId         String     @map("user_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  assignedAgent Agent? @relation(fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  parentTask    Task?  @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks      Task[] @relation("TaskSubtasks")
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tasks")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  action    String
+  details   Json     @default("{}")
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
