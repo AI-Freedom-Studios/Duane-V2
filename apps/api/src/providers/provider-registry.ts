@@ -201,14 +201,25 @@ export class ProviderRegistry {
       },
     });
 
-    // Aggregator
+    // Aggregator — Primary Provider
     this.register({
       slug: 'poe',
-      name: 'Poe',
+      name: 'Poe by Quora',
       category: ProviderCategory.AGGREGATOR,
-      description: 'Multi-model aggregator',
+      description: '600+ AI models — GPT-4o, Claude, Gemini, Sora 2, Veo 3, Kling, DALL-E 3, and more',
       website: 'https://poe.com',
       requiredFields: ['apiKey'],
+      testFn: async (apiKey) => {
+        const res = await fetch('https://api.poe.com/bot/GPT-4o-Mini', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query: 'ping', max_tokens: 1 }),
+        });
+        return res.ok || res.status === 429; // 429 = rate limited but key is valid
+      },
     });
   }
 }

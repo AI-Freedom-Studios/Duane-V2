@@ -14,14 +14,15 @@ import {
   Target,
   Sparkles,
   CheckCircle2,
+  MessageSquare,
 } from 'lucide-react';
 import Link from 'next/link';
 
 const metrics = [
+  { label: 'AI MODELS', value: '600+', subtitle: 'Via Poe.com API', icon: Zap, iconBg: 'bg-violet-500' },
   { label: 'TOTAL AGENTS', value: '10', subtitle: '+2 this month', icon: Users, iconBg: 'bg-orange-500' },
-  { label: 'ACTIVE NOW', value: '8', subtitle: '92% uptime', icon: Zap, iconBg: 'bg-green-500' },
-  { label: 'ENGINEERING', value: '6', subtitle: '6 specialists', icon: Target, iconBg: 'bg-purple-500' },
-  { label: 'CAMPAIGN TEAM', value: '3', subtitle: '3 producers', icon: TrendingUp, iconBg: 'bg-violet-500' },
+  { label: 'ACTIVE NOW', value: '8', subtitle: '92% uptime', icon: Target, iconBg: 'bg-green-500' },
+  { label: 'CAMPAIGN TEAM', value: '3', subtitle: '3 producers', icon: TrendingUp, iconBg: 'bg-purple-500' },
 ];
 
 export default function DashboardPage() {
@@ -65,7 +66,30 @@ export default function DashboardPage() {
       </div>
 
       {/* Hub Cards */}
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">
+        {/* AI Chat */}
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20"><MessageSquare className="h-6 w-6" /></div>
+              <Zap className="h-6 w-6 opacity-60" />
+            </div>
+            <div className="mt-6">
+              <h3 className="text-2xl font-bold">AI Chat</h3>
+              <p className="mt-2 text-sm text-white/80">Chat with GPT-4o, Claude, Gemini, Llama, and more via Poe</p>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <span className="flex items-center gap-1 text-xs text-white/70"><CheckCircle2 className="h-3 w-3" /> 600+ Models</span>
+              <span className="flex items-center gap-1 text-xs text-white/70"><CheckCircle2 className="h-3 w-3" /> Poe.com API</span>
+            </div>
+            <Link href="/ai-chat">
+              <Button variant="secondary" className="mt-5 w-full bg-white text-blue-700 hover:bg-white/90 font-semibold">
+                Open AI Chat <ArrowUpRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
         {/* AI Video Studio */}
         <Card className="overflow-hidden border-0 bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 text-white">
           <CardContent className="p-6">

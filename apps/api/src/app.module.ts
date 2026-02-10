@@ -12,6 +12,7 @@ import { AgentsModule } from './agents/agents.module';
 import { TasksModule } from './tasks/tasks.module';
 import { AuditModule } from './audit/audit.module';
 import { JobsModule } from './jobs/jobs.module';
+import { PoeModule } from './poe/poe.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -34,6 +35,7 @@ import { HealthController } from './health.controller';
     TasksModule,
     AuditModule,
     JobsModule,
+    PoeModule,
   ],
   controllers: [HealthController],
 })

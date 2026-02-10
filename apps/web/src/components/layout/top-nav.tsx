@@ -12,6 +12,7 @@ import {
   Users,
   CheckSquare,
   BookOpen,
+  MessageSquare,
   Moon,
   Sun,
   LogOut,
@@ -23,6 +24,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/ai-chat', label: 'AI Chat', icon: MessageSquare },
   { href: '/video-studio', label: 'Video Studio', icon: Video },
   { href: '/social-media', label: 'Social Media', icon: Share2 },
   { href: '/post-composer', label: 'Post Composer', icon: Send },
