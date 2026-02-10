@@ -1,44 +1,27 @@
 'use client';
 
 import { useAuth } from '@/lib/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Video,
   Share2,
-  Puzzle,
+  Plug,
   Users,
-  TrendingUp,
-  BarChart3,
   Zap,
-  ArrowRight,
-  Activity,
-  Eye,
-  MessageSquare,
-  Calendar,
+  TrendingUp,
+  ArrowUpRight,
+  Target,
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
 
 const metrics = [
-  { label: 'Total Posts', value: '1,247', change: '+12%', icon: MessageSquare, color: 'text-blue-500' },
-  { label: 'Engagement Rate', value: '4.8%', change: '+0.3%', icon: TrendingUp, color: 'text-green-500' },
-  { label: 'Total Reach', value: '89.2K', change: '+18%', icon: Eye, color: 'text-purple-500' },
-  { label: 'Active Agents', value: '10', change: '0', icon: Zap, color: 'text-orange-500' },
-];
-
-const quickActions = [
-  { label: 'Video Studio', description: 'Create AI-powered videos', icon: Video, href: '/video-studio', gradient: 'from-purple-500/10 to-pink-500/10' },
-  { label: 'Social Media Hub', description: 'Manage all platforms', icon: Share2, href: '/social-media', gradient: 'from-blue-500/10 to-cyan-500/10' },
-  { label: 'Integrations Hub', description: 'Connect your services', icon: Puzzle, href: '/integrations', gradient: 'from-green-500/10 to-emerald-500/10' },
-  { label: 'Agent Teams', description: 'Manage AI agents', icon: Users, href: '/teams', gradient: 'from-orange-500/10 to-yellow-500/10' },
-];
-
-const recentActivity = [
-  { action: 'ARIA delegated task to SYNTH', time: '2 min ago', type: 'delegation' },
-  { action: 'Post published to LinkedIn', time: '15 min ago', type: 'publish' },
-  { action: 'New API key added for OpenAI', time: '1 hour ago', type: 'integration' },
-  { action: 'PIXEL generated video brief', time: '2 hours ago', type: 'agent' },
-  { action: 'Campaign "Q1 Launch" created', time: '3 hours ago', type: 'campaign' },
+  { label: 'TOTAL AGENTS', value: '10', subtitle: '+2 this month', icon: Users, iconBg: 'bg-orange-500' },
+  { label: 'ACTIVE NOW', value: '8', subtitle: '92% uptime', icon: Zap, iconBg: 'bg-green-500' },
+  { label: 'ENGINEERING', value: '6', subtitle: '6 specialists', icon: Target, iconBg: 'bg-purple-500' },
+  { label: 'CAMPAIGN TEAM', value: '3', subtitle: '3 producers', icon: TrendingUp, iconBg: 'bg-violet-500' },
 ];
 
 export default function DashboardPage() {
@@ -46,90 +29,111 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Hero Section */}
-      <div className="rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8">
-        <h1 className="text-3xl font-bold">Welcome back, {user?.name || 'Founder'}</h1>
-        <p className="mt-2 text-muted-foreground">
-          Here&apos;s what&apos;s happening with your AI agents and campaigns today.
-        </p>
+      {/* Hero */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user?.name || 'Founder'}</h1>
+          <p className="mt-1 text-muted-foreground">Here&apos;s what&apos;s happening with your AI workforce today.</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" size="lg">Export Report</Button>
+          <Link href="/tasks">
+            <Button size="lg" className="gap-2">New Task <ArrowUpRight className="h-4 w-4" /></Button>
+          </Link>
+        </div>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Metrics */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
-          <Card key={metric.label}>
+          <Card key={metric.label} className="overflow-hidden">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <metric.icon className={`h-5 w-5 ${metric.color}`} />
-                <span className="text-xs font-medium text-green-600 dark:text-green-400">{metric.change}</span>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${metric.iconBg}`}>
+                  <metric.icon className="h-6 w-6 text-white" />
+                </div>
+                <ArrowUpRight className="h-5 w-5 text-muted-foreground/40" />
               </div>
-              <div className="mt-3">
-                <p className="text-2xl font-bold">{metric.value}</p>
-                <p className="text-sm text-muted-foreground">{metric.label}</p>
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{metric.label}</p>
+                <p className="mt-1 text-4xl font-bold">{metric.value}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{metric.subtitle}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Quick Actions + Activity */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Quick Actions */}
-        <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-lg font-semibold">Quick Actions</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {quickActions.map((action) => (
-              <Link key={action.href} href={action.href}>
-                <Card className="group cursor-pointer transition-all hover:shadow-md">
-                  <CardContent className="p-6">
-                    <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${action.gradient}`}>
-                      <action.icon className="h-6 w-6 text-foreground" />
-                    </div>
-                    <h3 className="font-semibold">{action.label}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{action.description}</p>
-                    <div className="mt-3 flex items-center text-sm text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                      Open <ArrowRight className="ml-1 h-3 w-3" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Recent Activity</h2>
-          <Card>
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                {recentActivity.map((item, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">{item.action}</p>
-                      <p className="text-xs text-muted-foreground">{item.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Upcoming Scheduled */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Upcoming Scheduled Posts</h2>
-        <Card>
-          <CardContent className="flex items-center justify-center p-12 text-center">
-            <div>
-              <Calendar className="mx-auto h-10 w-10 text-muted-foreground/50" />
-              <p className="mt-3 text-sm text-muted-foreground">No upcoming posts scheduled</p>
-              <Link href="/post-composer">
-                <Button className="mt-4" size="sm">Create a Post</Button>
-              </Link>
+      {/* Hub Cards */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {/* AI Video Studio */}
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20"><Video className="h-6 w-6" /></div>
+              <Sparkles className="h-6 w-6 opacity-60" />
             </div>
+            <div className="mt-6">
+              <h3 className="text-2xl font-bold">AI Video Studio</h3>
+              <p className="mt-2 text-sm text-white/80">Create stunning videos with 600+ AI models powered by Poe.com API</p>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <span className="flex items-center gap-1 text-xs text-white/70"><CheckCircle2 className="h-3 w-3" /> Veo 3, Sora 2, Kling</span>
+              <span className="flex items-center gap-1 text-xs text-white/70"><CheckCircle2 className="h-3 w-3" /> 8K Quality</span>
+            </div>
+            <Link href="/video-studio">
+              <Button variant="secondary" className="mt-5 w-full bg-white text-purple-700 hover:bg-white/90 font-semibold">
+                Open Video Studio <ArrowUpRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        {/* Social Media Hub */}
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-teal-500 via-cyan-500 to-emerald-400 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20"><Share2 className="h-6 w-6" /></div>
+              <svg className="h-6 w-6 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+            </div>
+            <div className="mt-6">
+              <h3 className="text-2xl font-bold">Social Media Hub</h3>
+              <p className="mt-2 text-sm text-white/80">Connect &amp; manage Meta, YouTube, LinkedIn, TikTok, X, and more</p>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <span className="flex items-center gap-1 text-xs text-white/70"><CheckCircle2 className="h-3 w-3" /> OAuth 2.0</span>
+              <span className="flex items-center gap-1 text-xs text-white/70"><CheckCircle2 className="h-3 w-3" /> 8+ Platforms</span>
+            </div>
+            <Link href="/social-media">
+              <Button variant="secondary" className="mt-5 w-full bg-white text-teal-700 hover:bg-white/90 font-semibold">
+                Manage Social Media <ArrowUpRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        {/* Integrations Hub */}
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-700 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20"><Plug className="h-6 w-6" /></div>
+              <span className="rounded-full bg-green-400 px-3 py-1 text-xs font-semibold text-green-900">12 Connected</span>
+            </div>
+            <div className="mt-6">
+              <h3 className="text-2xl font-bold">Integrations Hub</h3>
+              <p className="mt-2 text-sm text-white/80">Connect with Founder Command Center and other essential tools</p>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <span className="flex items-center gap-1 text-xs text-white/70"><CheckCircle2 className="h-3 w-3" /> Poe.com API</span>
+              <span className="flex items-center gap-1 text-xs text-white/70"><CheckCircle2 className="h-3 w-3" /> Command Center</span>
+            </div>
+            <Link href="/integrations">
+              <Button variant="secondary" className="mt-5 w-full bg-white text-violet-700 hover:bg-white/90 font-semibold">
+                Manage Integrations <ArrowUpRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
