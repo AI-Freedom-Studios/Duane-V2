@@ -161,22 +161,58 @@ export class IntegrationsService {
   }
 
   private async fetchProfile(platform: string, accessToken: string): Promise<{ id: string; name: string; avatar?: string }> {
-    // Platform-specific profile fetching
-    switch (platform) {
-      case 'meta': {
-        const res = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name,picture&access_token=${accessToken}`);
-        const data = await res.json();
-        return { id: data.id, name: data.name, avatar: data.picture?.data?.url };
+    try {
+      switch (platform) {
+        case 'meta': {
+          const res = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name,picture&access_token=${accessToken}`);
+          const data = await res.json();
+          return { id: data.id, name: data.name, avatar: data.picture?.data?.url };
+        }
+        case 'linkedin': {
+          const res = await fetch('https://api.linkedin.com/v2/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const data = await res.json();
+          return { id: data.sub, name: data.name, avatar: data.picture };
+        }
+        case 'youtube': {
+          const res = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const data = await res.json();
+          const channel = data.items?.[0];
+          if (channel) {
+            return { id: channel.id, name: channel.snippet.title, avatar: channel.snippet.thumbnails?.default?.url };
+          }
+          return { id: `yt-${Date.now()}`, name: 'YouTube Channel' };
+        }
+        case 'tiktok': {
+          const res = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const data = await res.json();
+          const user = data.data?.user;
+          if (user) {
+            return { id: user.open_id, name: user.display_name, avatar: user.avatar_url };
+          }
+          return { id: `tt-${Date.now()}`, name: 'TikTok Account' };
+        }
+        case 'x': {
+          const res = await fetch('https://api.twitter.com/2/users/me?user.fields=profile_image_url', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const data = await res.json();
+          if (data.data) {
+            return { id: data.data.id, name: data.data.name || data.data.username, avatar: data.data.profile_image_url };
+          }
+          return { id: `x-${Date.now()}`, name: 'X Account' };
+        }
+        default:
+          return { id: `${platform}-${Date.now()}`, name: `${platform} account` };
       }
-      case 'linkedin': {
-        const res = await fetch('https://api.linkedin.com/v2/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const data = await res.json();
-        return { id: data.sub, name: data.name, avatar: data.picture };
-      }
-      default:
-        return { id: 'unknown', name: `${platform} account` };
+    } catch {
+      // If profile fetch fails, return a fallback rather than breaking the entire OAuth flow
+      return { id: `${platform}-${Date.now()}`, name: `${platform} account` };
     }
   }
 

@@ -5,10 +5,14 @@ class ApiClient {
 
   setToken(token: string | null) {
     this.token = token;
-    if (token) {
-      if (typeof window !== 'undefined') localStorage.setItem('agentos-token', token);
-    } else {
-      if (typeof window !== 'undefined') localStorage.removeItem('agentos-token');
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('agentos-token', token);
+        document.cookie = `agentos-token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      } else {
+        localStorage.removeItem('agentos-token');
+        document.cookie = 'agentos-token=; path=/; max-age=0';
+      }
     }
   }
 

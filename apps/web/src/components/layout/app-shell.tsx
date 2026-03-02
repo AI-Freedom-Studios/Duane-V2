@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { TopNav } from './top-nav';
@@ -8,23 +8,27 @@ import { TopNav } from './top-nav';
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading, loadUser } = useAuth();
   const router = useRouter();
+  const didLoad = useRef(false);
 
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    if (!didLoad.current) {
+      didLoad.current = true;
+      loadUser();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [isLoading, user, router]);
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading AgentOS...</p>
         </div>
       </div>
     );

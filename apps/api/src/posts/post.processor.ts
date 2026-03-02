@@ -39,9 +39,11 @@ export class PostProcessor extends WorkerHost {
         // Decrypt tokens for the social account
         const tokens = JSON.parse(decrypt(target.socialAccount.encryptedTokens));
 
-        // MOCK: In production, this would call the platform API
-        // Each platform would have its own publishing adapter
-        this.logger.log(`[MOCK PUBLISH] Platform: ${target.socialAccount.platform}, Account: ${target.socialAccount.accountName}, Content: ${post.content.substring(0, 50)}...`);
+        // STUB: Platform publishing adapters are isolated here.
+        // When live OAuth creds + scopes are configured per platform,
+        // replace the stub below with the real platform adapter call.
+        // e.g. await this.publishToMeta(tokens, post.content, post.mediaUrls);
+        this.logger.log(`[STUB PUBLISH] Platform: ${target.socialAccount.platform}, Account: ${target.socialAccount.accountName}, Content: ${post.content.substring(0, 50)}...`);
 
         // Simulate successful publish
         await this.prisma.postTarget.update({

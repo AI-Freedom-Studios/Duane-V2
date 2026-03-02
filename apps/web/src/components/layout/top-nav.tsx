@@ -43,6 +43,14 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="flex h-14 items-center px-6">
+        {/* Logo */}
+        <Link href="/dashboard" className="mr-4 flex items-center gap-2 shrink-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+            <Sparkles className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <span className="font-bold text-sm hidden sm:inline">AgentOS</span>
+        </Link>
+
         {/* Nav items */}
         <nav className="flex items-center gap-1 overflow-x-auto scrollbar-hide flex-1">
           {navItems.map((item) => {
