@@ -29,7 +29,7 @@ export interface PoeVideoRequest {
 @Injectable()
 export class PoeService {
   private readonly logger = new Logger(PoeService.name);
-  private readonly POE_API_BASE = 'https://api.poe.com/bot';
+  private readonly POE_API_BASE = 'https://api.poe.com/v1';
 
   constructor(private prisma: PrismaService) {}
 
@@ -112,17 +112,17 @@ export class PoeService {
     }
 
     try {
-      const response = await fetch(`${this.POE_API_BASE}/${request.model}`, {
+      const response = await fetch(`${this.POE_API_BASE}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: request.messages.map(m => m.content).join('\n'),
+          model: request.model,
+          messages: request.messages,
           temperature: request.temperature ?? 0.7,
           max_tokens: request.maxTokens ?? 2048,
-          conversation_id: null,
         }),
       });
 
@@ -133,11 +133,12 @@ export class PoeService {
       }
 
       const data = await response.json();
+      const choice = data.choices?.[0];
       return {
         id: data.id || `poe-${Date.now()}`,
-        model: request.model,
+        model: data.model || request.model,
         provider: model.provider,
-        content: data.text || data.response || '',
+        content: choice?.message?.content || '',
         usage: {
           promptTokens: data.usage?.prompt_tokens || 0,
           completionTokens: data.usage?.completion_tokens || 0,
@@ -167,19 +168,22 @@ export class PoeService {
     }
 
     try {
-      const response = await fetch(`${this.POE_API_BASE}/${request.model}`, {
+      const response = await fetch(`${this.POE_API_BASE}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: request.prompt,
-          metadata: {
-            duration: request.duration || 4,
-            resolution: request.resolution || '1280x720',
-            aspect_ratio: request.aspectRatio || '16:9',
-          },
+          model: request.model,
+          messages: [
+            {
+              role: 'user',
+              content: `Generate a video: ${request.prompt}\nDuration: ${request.duration || 4}s\nResolution: ${request.resolution || '1280x720'}\nAspect ratio: ${request.aspectRatio || '16:9'}`,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 4096,
         }),
       });
 
@@ -190,13 +194,20 @@ export class PoeService {
       }
 
       const data = await response.json();
+      const choice = data.choices?.[0];
+      const content = choice?.message?.content || '';
+
+      // Extract video URL from response content if present
+      const videoUrlMatch = content.match(/https?:\/\/[^\s"']+\.(mp4|webm|mov)/i);
+
       return {
         id: data.id || `poe-video-${Date.now()}`,
-        model: request.model,
+        model: data.model || request.model,
         provider: model.provider,
-        status: data.status || 'processing',
-        videoUrl: data.video_url || null,
-        thumbnailUrl: data.thumbnail_url || null,
+        status: videoUrlMatch ? 'completed' : 'processing',
+        videoUrl: videoUrlMatch?.[0] || null,
+        thumbnailUrl: null,
+        content,
         prompt: request.prompt,
         duration: request.duration || 4,
         resolution: request.resolution || '1280x720',
@@ -224,18 +235,22 @@ export class PoeService {
     }
 
     try {
-      const response = await fetch(`${this.POE_API_BASE}/${model}`, {
+      const response = await fetch(`${this.POE_API_BASE}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: prompt,
-          metadata: {
-            width: options?.width || 1024,
-            height: options?.height || 1024,
-          },
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: `Generate an image: ${prompt}\nSize: ${options?.width || 1024}x${options?.height || 1024}`,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 4096,
         }),
       });
 
@@ -244,11 +259,18 @@ export class PoeService {
       }
 
       const data = await response.json();
+      const choice = data.choices?.[0];
+      const content = choice?.message?.content || '';
+
+      // Extract image URL from response content if present
+      const imageUrlMatch = content.match(/https?:\/\/[^\s"']+\.(png|jpg|jpeg|webp|gif)/i);
+
       return {
         id: data.id || `poe-image-${Date.now()}`,
-        model,
+        model: data.model || model,
         provider: modelDef.provider,
-        imageUrl: data.image_url || data.url || null,
+        imageUrl: imageUrlMatch?.[0] || null,
+        content,
         prompt,
         createdAt: new Date().toISOString(),
       };

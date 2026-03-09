@@ -210,13 +210,17 @@ export class ProviderRegistry {
       website: 'https://poe.com',
       requiredFields: ['apiKey'],
       testFn: async (apiKey) => {
-        const res = await fetch('https://api.poe.com/bot/GPT-4o-Mini', {
+        const res = await fetch('https://api.poe.com/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ query: 'ping', max_tokens: 1 }),
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: 'ping' }],
+            max_tokens: 1,
+          }),
         });
         return res.ok || res.status === 429; // 429 = rate limited but key is valid
       },
