@@ -56,8 +56,8 @@ export class PoeService {
       // Video Models
       { id: 'sora-2', name: 'Sora 2', category: 'video', description: 'OpenAI Sora 2 — cinematic video generation', provider: 'OpenAI', isDefault: true },
       { id: 'veo-3', name: 'Veo 3', category: 'video', description: 'Google Veo 3 — high-fidelity video', provider: 'Google' },
-      { id: 'kling-1.6', name: 'Kling 1.6', category: 'video', description: 'Kuaishou Kling 1.6 — realistic motion', provider: 'Kuaishou' },
-      { id: 'runway-gen3', name: 'Runway Gen-3', category: 'video', description: 'Runway Gen-3 Alpha — creative video', provider: 'Runway' },
+      { id: 'kling-2.1-pro', name: 'Kling 2.1 Pro', category: 'video', description: 'Kuaishou Kling 2.1 Pro — realistic motion', provider: 'Kuaishou' },
+      { id: 'runway-gen-4.5', name: 'Runway Gen-4.5', category: 'video', description: 'Runway Gen-4.5 — creative video', provider: 'Runway' },
       { id: 'minimax-video', name: 'MiniMax Video', category: 'video', description: 'MiniMax — fast video generation', provider: 'MiniMax' },
       { id: 'pika-2.0', name: 'Pika 2.0', category: 'video', description: 'Pika 2.0 — expressive video AI', provider: 'Pika' },
       { id: 'luma-dream-machine', name: 'Luma Dream Machine', category: 'video', description: 'Luma Labs — dreamy video generation', provider: 'Luma' },
@@ -179,11 +179,16 @@ export class PoeService {
           messages: [
             {
               role: 'user',
-              content: `Generate a video: ${request.prompt}\nDuration: ${request.duration || 4}s\nResolution: ${request.resolution || '1280x720'}\nAspect ratio: ${request.aspectRatio || '16:9'}`,
+              content: request.prompt,
             },
           ],
           temperature: 0.7,
           max_tokens: 4096,
+          stream: false,
+          extra_body: {
+            duration: request.duration || 4,
+            aspect_ratio: request.aspectRatio || '16:9',
+          },
         }),
       });
 
@@ -246,11 +251,16 @@ export class PoeService {
           messages: [
             {
               role: 'user',
-              content: `Generate an image: ${prompt}\nSize: ${options?.width || 1024}x${options?.height || 1024}`,
+              content: prompt,
             },
           ],
           temperature: 0.7,
           max_tokens: 4096,
+          stream: false,
+          extra_body: {
+            width: options?.width || 1024,
+            height: options?.height || 1024,
+          },
         }),
       });
 

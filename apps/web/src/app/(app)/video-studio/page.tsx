@@ -28,8 +28,8 @@ import { useState } from 'react';
 const poeVideoModels = [
   { id: 'sora-2', name: 'Sora 2', provider: 'OpenAI', quality: '8K', badge: 'Top Pick', badgeColor: 'bg-yellow-500' },
   { id: 'veo-3', name: 'Veo 3', provider: 'Google', quality: '4K', badge: 'New', badgeColor: 'bg-green-500' },
-  { id: 'kling-1.6', name: 'Kling 1.6', provider: 'Kuaishou', quality: '4K', badge: 'Popular', badgeColor: 'bg-blue-500' },
-  { id: 'runway-gen3', name: 'Runway Gen-3', provider: 'Runway', quality: '4K', badge: null, badgeColor: '' },
+  { id: 'kling-2.1-pro', name: 'Kling 2.1 Pro', provider: 'Kuaishou', quality: '4K', badge: 'Popular', badgeColor: 'bg-blue-500' },
+  { id: 'runway-gen-4.5', name: 'Runway Gen-4.5', provider: 'Runway', quality: '4K', badge: null, badgeColor: '' },
   { id: 'minimax-video', name: 'MiniMax Video', provider: 'MiniMax', quality: '1080p', badge: 'Fast', badgeColor: 'bg-purple-500' },
   { id: 'pika-2.0', name: 'Pika 2.0', provider: 'Pika', quality: '1080p', badge: null, badgeColor: '' },
   { id: 'luma-dream-machine', name: 'Dream Machine', provider: 'Luma Labs', quality: '1080p', badge: null, badgeColor: '' },
