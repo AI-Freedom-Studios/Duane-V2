@@ -2,17 +2,36 @@ import { Controller, Get, Post, Put, Delete, Param, Body, Req, UseGuards } from 
 import { ProvidersService } from './providers.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Request } from 'express';
+import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 
 class AddKeyDto {
+  @IsString()
   providerSlug!: string;
+
+  @IsString()
+  @MaxLength(100)
   label!: string;
+
+  @IsString()
   apiKey!: string;
+
+  @IsOptional()
+  @IsObject()
   additionalFields?: Record<string, string>;
 }
 
 class UpdateKeyDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   label?: string;
+
+  @IsOptional()
+  @IsString()
   apiKey?: string;
+
+  @IsOptional()
+  @IsObject()
   additionalFields?: Record<string, string>;
 }
 

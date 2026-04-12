@@ -2,20 +2,38 @@ import { Controller, Get, Post, Put, Param, Body, Query, Req, UseGuards } from '
 import { TasksService } from './tasks.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Request } from 'express';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 class CreateTaskDto {
+  @IsString()
+  @MaxLength(200)
   title!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
   description?: string;
+
+  @IsOptional()
+  @IsString()
   assignedAgentId?: string | null;
+
+  @IsOptional()
+  @IsString()
   parentTaskId?: string | null;
 }
 
 class UpdateStatusDto {
+  @IsString()
   status!: string;
+
+  @IsOptional()
+  @IsString()
   result?: string;
 }
 
 class AssignDto {
+  @IsString()
   agentId!: string;
 }
 

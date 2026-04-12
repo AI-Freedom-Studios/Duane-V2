@@ -210,19 +210,15 @@ export class ProviderRegistry {
       website: 'https://poe.com',
       requiredFields: ['apiKey'],
       testFn: async (apiKey) => {
-        const res = await fetch('https://api.poe.com/v1/chat/completions', {
-          method: 'POST',
+        // Verify the key against Poe's account-level usage endpoint instead of a
+        // specific model call. This avoids false negatives when a particular
+        // model handle changes or the account lacks credits for that model.
+        const res = await fetch('https://api.poe.com/usage/current_balance', {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: 'ping' }],
-            max_tokens: 1,
-          }),
         });
-        return res.ok || res.status === 429; // 429 = rate limited but key is valid
+        return res.ok;
       },
     });
   }

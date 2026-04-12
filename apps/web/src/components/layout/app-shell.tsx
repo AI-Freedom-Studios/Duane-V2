@@ -39,7 +39,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <TopNav />
-      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <main className="relative mx-auto max-w-[92rem] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-dashboard-grid [mask-image:linear-gradient(to_bottom,black,transparent)] opacity-60" />
+        {children}
+      </main>
     </div>
   );
 }

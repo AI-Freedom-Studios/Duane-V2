@@ -24,12 +24,12 @@ export const useAuth = create<AuthState>((set) => ({
   login: async (email, password) => {
     const res: any = await api.post('/auth/login', { email, password });
     api.setToken(res.accessToken);
-    set({ user: res.user });
+    set({ user: res.user, isLoading: false });
   },
   register: async (email, password, name) => {
     const res: any = await api.post('/auth/register', { email, password, name });
     api.setToken(res.accessToken);
-    set({ user: res.user });
+    set({ user: res.user, isLoading: false });
   },
   logout: () => {
     api.setToken(null);

@@ -56,6 +56,98 @@ The web app runs on http://localhost:3000 and the API on http://localhost:4000.
 | `LINKEDIN_CLIENT_SECRET` | LinkedIn app client secret |
 | ... | Similar pattern for YouTube, TikTok, X |
 
+## Production OAuth Setup
+
+Your customers will still click `Connect` from the frontend, but the OAuth flow must complete through your deployed API. In this project:
+
+- the frontend starts the flow using `NEXT_PUBLIC_API_URL`
+- the provider redirects back to your API callback URL
+- the API exchanges the code for tokens and stores the connected account
+- the API redirects the user back to the frontend using `CORS_ORIGIN`
+
+### 1. Choose your production domains
+
+Example:
+
+- Frontend: `https://app.agentos.ai`
+- API: `https://api.agentos.ai`
+
+### 2. Set frontend environment variables
+
+In `apps/web`:
+
+```env
+NEXT_PUBLIC_API_URL=https://api.agentos.ai
+```
+
+### 3. Set backend environment variables
+
+In `apps/api`:
+
+```env
+CORS_ORIGIN=https://app.agentos.ai
+
+META_CLIENT_ID=your-meta-client-id
+META_CLIENT_SECRET=your-meta-client-secret
+META_REDIRECT_URI=https://api.agentos.ai/integrations/oauth/meta/callback
+
+LINKEDIN_CLIENT_ID=your-linkedin-client-id
+LINKEDIN_CLIENT_SECRET=your-linkedin-client-secret
+LINKEDIN_REDIRECT_URI=https://api.agentos.ai/integrations/oauth/linkedin/callback
+
+YOUTUBE_CLIENT_ID=your-youtube-client-id
+YOUTUBE_CLIENT_SECRET=your-youtube-client-secret
+YOUTUBE_REDIRECT_URI=https://api.agentos.ai/integrations/oauth/youtube/callback
+
+TIKTOK_CLIENT_ID=your-tiktok-client-id
+TIKTOK_CLIENT_SECRET=your-tiktok-client-secret
+TIKTOK_REDIRECT_URI=https://api.agentos.ai/integrations/oauth/tiktok/callback
+
+X_CLIENT_ID=your-x-client-id
+X_CLIENT_SECRET=your-x-client-secret
+X_REDIRECT_URI=https://api.agentos.ai/integrations/oauth/x/callback
+```
+
+### 4. Register these callback URLs with each provider
+
+Use these exact callback patterns in the provider dashboards:
+
+- Meta: `https://api.agentos.ai/integrations/oauth/meta/callback`
+- LinkedIn: `https://api.agentos.ai/integrations/oauth/linkedin/callback`
+- YouTube: `https://api.agentos.ai/integrations/oauth/youtube/callback`
+- TikTok: `https://api.agentos.ai/integrations/oauth/tiktok/callback`
+- X: `https://api.agentos.ai/integrations/oauth/x/callback`
+
+Replace `api.agentos.ai` with your real API domain.
+
+### 5. What the customer experiences
+
+From the user's perspective, this still feels like a frontend connection flow:
+
+1. The customer clicks `Connect` in the web app.
+2. The browser is redirected to your API OAuth route.
+3. The API redirects to the provider login screen.
+4. The provider redirects back to your API callback URL.
+5. The API saves the tokens and redirects the customer back to the frontend.
+
+### 6. Why this cannot be browser-only
+
+Do not try to complete LinkedIn or other social OAuth connections entirely in frontend code:
+
+- client secrets must stay on the server
+- token exchange should happen on the server
+- access tokens should be stored securely on the server
+- this project saves connected accounts in the database during the callback flow
+
+### 7. Production checklist
+
+- `NEXT_PUBLIC_API_URL` points to the public API domain
+- `CORS_ORIGIN` points to the public frontend domain
+- each provider app has the matching callback URL registered
+- each `*_CLIENT_ID` and `*_CLIENT_SECRET` is set on the API
+- the API domain is reachable publicly over HTTPS
+- the frontend and API domains match the exact values configured in provider dashboards
+
 ### Optional
 | Variable | Description | Default |
 |----------|-------------|---------|
