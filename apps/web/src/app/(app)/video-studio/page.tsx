@@ -32,6 +32,7 @@ const poeVideoModels = [
   { id: 'pika-2.0', name: 'Pika 2.0', provider: 'Pika', quality: '1080p', badge: null, badgeColor: '' },
   { id: 'luma-dream-machine', name: 'Dream Machine', provider: 'Luma Labs', quality: '1080p', badge: null, badgeColor: '' },
   { id: 'stable-video-diffusion', name: 'Stable Video', provider: 'Stability', quality: '1080p', badge: 'Open Source', badgeColor: 'bg-orange-500' },
+  { id: 'json2video', name: 'JSON2Video', provider: 'JSON2Video', quality: 'Template', badge: 'Automation', badgeColor: 'bg-cyan-500' },
 ];
 
 const quickPrompts = [
@@ -91,6 +92,11 @@ const modelDurationOptions: Record<string, Array<{ value: string; label: string 
     { value: '9', label: '9 seconds' },
   ],
   'stable-video-diffusion': [{ value: '18', label: '18 seconds' }],
+  json2video: [
+    { value: '8', label: '8 seconds' },
+    { value: '15', label: '15 seconds' },
+    { value: '30', label: '30 seconds' },
+  ],
 };
 
 const videoLibraryStorageKey = 'agentos-video-library';
@@ -175,7 +181,13 @@ export default function VideoStudioPage() {
 
   const generateMutation = useMutation({
     mutationFn: (data: { model: string; prompt: string; duration: number; resolution: string; referenceImage?: string | null }) =>
-      api.post('/poe/video/generate', data),
+      data.model === 'json2video'
+        ? api.post('/json2video/video/generate', {
+            prompt: data.prompt,
+            duration: data.duration,
+            resolution: data.resolution,
+          })
+        : api.post('/poe/video/generate', data),
     onMutate: () => {
       setIsGenerating(true);
       setGenerationError(null);
@@ -315,7 +327,10 @@ export default function VideoStudioPage() {
 
     const interval = window.setInterval(async () => {
       try {
-        const next = await api.get<any>(`/poe/videos/${generatedVideo.id}`);
+        const statusPath = generatedVideo.provider === 'JSON2Video' || String(generatedVideo.id).startsWith('json2video-')
+          ? `/json2video/videos/${generatedVideo.id}`
+          : `/poe/videos/${generatedVideo.id}`;
+        const next = await api.get<any>(statusPath);
         setGeneratedVideo(next);
         upsertLibraryVideo(next);
         if (next.status === 'failed') {
@@ -509,6 +524,11 @@ export default function VideoStudioPage() {
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Selected engine</p>
                     <p className="mt-1 text-sm font-semibold text-slate-900">{selectedModelInfo?.name}</p>
                     <p className="text-xs text-slate-500">{selectedModelInfo?.provider} • {selectedModelInfo?.quality}</p>
+                    {selectedModel === 'json2video' ? (
+                      <p className="mt-2 text-xs leading-5 text-cyan-700">
+                        Renders a branded template-style video from your brief using your JSON2Video API key.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </CardHeader>

@@ -1,7 +1,8 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useState } from 'react';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,24 +12,41 @@ import {
   ArrowUpRight,
   BarChart3,
   Calendar,
+  CheckCircle2,
   Eye,
   Globe,
   Heart,
+  Loader2,
   MessageSquare,
+  Plus,
   Share2,
   Sparkles,
   TrendingUp,
+  Unlink,
   Users,
   Zap,
 } from 'lucide-react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 const platformStats = [
-  { platform: 'LinkedIn', followers: '12.4K', engagement: '4.2%', posts: 156, focus: 'Thought leadership', brandColor: 'bg-[#2563eb]', logo: 'linkedin' },
-  { platform: 'Meta', followers: '34.7K', engagement: '3.8%', posts: 312, focus: 'Community campaigns', brandColor: 'bg-[#3b82f6]', logo: 'meta' },
-  { platform: 'YouTube', followers: '8.2K', engagement: '5.1%', posts: 48, focus: 'Long-form product stories', brandColor: 'bg-[#ef4444]', logo: 'youtube' },
-  { platform: 'X', followers: '21.3K', engagement: '2.9%', posts: 524, focus: 'Fast commentary', brandColor: 'bg-[#0f172a]', logo: 'x' },
-  { platform: 'TikTok', followers: '15.6K', engagement: '7.2%', posts: 89, focus: 'Short-form reach', brandColor: 'bg-black', logo: 'tiktok' },
+  { id: 'linkedin', platform: 'LinkedIn', followers: '12.4K', engagement: '4.2%', posts: 156, focus: 'Thought leadership', brandColor: 'bg-[#2563eb]', logo: 'linkedin' },
+  { id: 'meta', platform: 'Meta', followers: '34.7K', engagement: '3.8%', posts: 312, focus: 'Community campaigns', brandColor: 'bg-[#3b82f6]', logo: 'meta' },
+  { id: 'youtube', platform: 'YouTube', followers: '8.2K', engagement: '5.1%', posts: 48, focus: 'Long-form product stories', brandColor: 'bg-[#ef4444]', logo: 'youtube' },
+  { id: 'x', platform: 'X', followers: '21.3K', engagement: '2.9%', posts: 524, focus: 'Fast commentary', brandColor: 'bg-[#0f172a]', logo: 'x' },
+  { id: 'tiktok', platform: 'TikTok', followers: '15.6K', engagement: '7.2%', posts: 89, focus: 'Short-form reach', brandColor: 'bg-black', logo: 'tiktok' },
 ];
+
+type SocialAccount = {
+  id: string;
+  platform: string;
+  platformAccountId: string;
+  accountName: string;
+  accountAvatar?: string | null;
+  isActive: boolean;
+  lastSyncAt?: string | null;
+  createdAt?: string;
+};
 
 function PlatformLogo({ platform }: { platform: string }) {
   if (platform === 'linkedin') {
@@ -91,13 +109,53 @@ const audienceSignals = [
 ];
 
 export default function SocialMediaPage() {
-  const { data: accounts } = useQuery({
+  const queryClient = useQueryClient();
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+
+  const { data: accounts, isLoading: accountsLoading } = useQuery({
     queryKey: ['social-accounts'],
-    queryFn: () => api.get<any[]>('/social/accounts'),
+    queryFn: () => api.get<SocialAccount[]>('/social/accounts'),
   });
 
   const activeAccounts = accounts?.filter((account: any) => account.isActive) || [];
-  const connectedCount = activeAccounts.length;
+  const connectedPlatforms = new Set(activeAccounts.map((account) => account.platform)).size;
+  const connectedCount = connectedPlatforms;
+  const getPlatformAccounts = (platform: string) => activeAccounts.filter((account) => account.platform === platform);
+  const platformCards = platformStats.map((stat) => {
+    const connectedAccounts = getPlatformAccounts(stat.id);
+
+    return {
+      ...stat,
+      connectedAccounts,
+      isConnected: connectedAccounts.length > 0,
+    };
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: (accountId: string) => api.delete(`/integrations/oauth/${accountId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['social-accounts'] });
+    },
+    onSettled: () => {
+      setDisconnectingId(null);
+    },
+  });
+
+  const handleConnect = (platform: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('agentos-token') : null;
+
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+
+    window.location.href = `${API_URL}/integrations/oauth/${platform}/connect?token=${encodeURIComponent(token)}`;
+  };
+
+  const handleDisconnect = (accountId: string) => {
+    setDisconnectingId(accountId);
+    disconnectMutation.mutate(accountId);
+  };
 
   return (
     <div className="space-y-8 pb-6">
@@ -170,7 +228,7 @@ export default function SocialMediaPage() {
                   No active platforms are connected yet. Once accounts are linked, this panel can become your quick launch point for planning and distribution.
                 </div>
               ) : (
-                activeAccounts.slice(0, 4).map((account: any) => (
+                activeAccounts.slice(0, 4).map((account) => (
                   <div key={account.id} className="flex items-center justify-between rounded-[1.35rem] border border-white/12 bg-white/8 px-4 py-3">
                     <div>
                       <p className="font-medium text-white">{account.accountName}</p>
@@ -194,7 +252,7 @@ export default function SocialMediaPage() {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {platformStats.map((stat) => (
+        {platformCards.map((stat) => (
           <Card key={stat.platform} className="surface-glow overflow-hidden border-white/70 bg-white/90 shadow-lg">
             <CardContent className="space-y-4 p-5">
               <div className="flex items-center justify-between">
@@ -204,26 +262,75 @@ export default function SocialMediaPage() {
                   </div>
                   <span className="font-medium text-slate-900">{stat.platform}</span>
                 </div>
-                <ArrowUpRight className="h-4 w-4 text-slate-400" />
+                {stat.isConnected ? (
+                  <Badge className="border-0 bg-emerald-100 text-emerald-700">
+                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                    Connected
+                  </Badge>
+                ) : (
+                  <ArrowUpRight className="h-4 w-4 text-slate-400" />
+                )}
               </div>
               <div>
-                <p className="text-3xl font-semibold tracking-tight text-slate-950">{stat.followers}</p>
-                <p className="mt-1 text-sm text-slate-500">followers</p>
+                <p className="text-3xl font-semibold tracking-tight text-slate-950">
+                  {stat.isConnected ? stat.followers : 'Connect'}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {stat.isConnected ? 'benchmark followers' : 'to enable publishing'}
+                </p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500">Engagement</span>
-                  <span className="flex items-center gap-1 font-medium text-emerald-600">
+                  <span className={`flex items-center gap-1 font-medium ${stat.isConnected ? 'text-emerald-600' : 'text-slate-400'}`}>
                     <TrendingUp className="h-3.5 w-3.5" />
-                    {stat.engagement}
+                    {stat.isConnected ? stat.engagement : '--'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500">Posts</span>
-                  <span className="font-medium text-slate-900">{stat.posts}</span>
+                  <span className="font-medium text-slate-900">{stat.isConnected ? stat.posts : '--'}</span>
                 </div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-600">{stat.focus}</div>
+              <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3">
+                {accountsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking connection...
+                  </div>
+                ) : stat.connectedAccounts.length > 0 ? (
+                  stat.connectedAccounts.map((account) => (
+                    <div key={account.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">{account.accountName}</p>
+                        <p className="text-xs text-slate-500">Ready for publishing</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 rounded-full text-slate-500 hover:text-red-600"
+                        onClick={() => handleDisconnect(account.id)}
+                        disabled={disconnectingId === account.id}
+                        aria-label={`Disconnect ${account.accountName}`}
+                      >
+                        {disconnectingId === account.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlink className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm leading-6 text-slate-500">No account linked yet. Connect {stat.platform} to use it from this workspace.</p>
+                )}
+              </div>
+              <Button
+                type="button"
+                className={`w-full rounded-2xl ${stat.isConnected ? 'bg-slate-950 text-white hover:bg-slate-800' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                onClick={() => handleConnect(stat.id)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {stat.isConnected ? 'Add another account' : `Connect ${stat.platform}`}
+              </Button>
             </CardContent>
           </Card>
         ))}

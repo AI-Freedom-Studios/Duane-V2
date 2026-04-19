@@ -2,18 +2,46 @@ import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards 
 import { PostsService } from './posts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Request } from 'express';
+import { ArrayNotEmpty, IsArray, IsISO8601, IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
 
 class CreatePostDto {
+  @IsString()
+  @MinLength(1)
   content!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUrl({ require_tld: false }, { each: true })
   mediaUrls?: string[];
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
   targetAccountIds!: string[];
+
+  @IsOptional()
+  @IsISO8601()
   scheduledAt?: string;
 }
 
 class UpdatePostDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   content?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUrl({ require_tld: false }, { each: true })
   mediaUrls?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   targetAccountIds?: string[];
+
+  @IsOptional()
+  @IsISO8601()
   scheduledAt?: string | null;
 }
 

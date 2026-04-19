@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '@agentos/shared';
 import { encrypt, decrypt } from '../common/crypto';
 import { v4 as uuidv4 } from 'uuid';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 interface OAuthConfig {
   clientId: string;
@@ -68,13 +69,62 @@ export class IntegrationsService {
           clientId: this.config.get('X_CLIENT_ID') || '',
           clientSecret: this.config.get('X_CLIENT_SECRET') || '',
           redirectUri: this.config.get('X_REDIRECT_URI') || 'http://localhost:4000/integrations/oauth/x/callback',
-          authUrl: 'https://twitter.com/i/oauth2/authorize',
-          tokenUrl: 'https://api.twitter.com/2/oauth2/token',
+          authUrl: 'https://x.com/i/oauth2/authorize',
+          tokenUrl: 'https://api.x.com/2/oauth2/token',
           scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
         };
       default:
         throw new BadRequestException(`Unsupported platform: ${platform}`);
     }
+  }
+
+  private createState(userId: string, platform: string, extra: Record<string, string> = {}): string {
+    const payload = Buffer.from(
+      JSON.stringify({
+        userId,
+        platform,
+        expiresAt: Date.now() + 600000,
+        nonce: uuidv4(),
+        ...extra,
+      }),
+    ).toString('base64url');
+    const signature = createHmac('sha256', this.config.get('JWT_SECRET') || 'dev-secret')
+      .update(payload)
+      .digest('base64url');
+
+    return `${payload}.${signature}`;
+  }
+
+  private createCodeVerifier() {
+    return randomBytes(32).toString('base64url');
+  }
+
+  private createCodeChallenge(verifier: string) {
+    return createHash('sha256').update(verifier).digest('base64url');
+  }
+
+  private readState(platform: string, state: string): { userId: string; platform: string; expiresAt: number; codeVerifier?: string } {
+    const [payload, signature] = state.split('.');
+    if (!payload || !signature) {
+      throw new BadRequestException('Invalid OAuth state');
+    }
+
+    const expectedSignature = createHmac('sha256', this.config.get('JWT_SECRET') || 'dev-secret')
+      .update(payload)
+      .digest('base64url');
+    const signatureBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (signatureBuffer.length !== expectedBuffer.length || !timingSafeEqual(signatureBuffer, expectedBuffer)) {
+      throw new BadRequestException('Invalid OAuth state');
+    }
+
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (decoded.platform !== platform || decoded.expiresAt < Date.now()) {
+      throw new BadRequestException('Invalid or expired OAuth state');
+    }
+
+    return decoded;
   }
 
   getConnectUrl(userId: string, platform: string): string {
@@ -83,8 +133,8 @@ export class IntegrationsService {
       throw new BadRequestException(`OAuth not configured for ${platform}. Set ${platform.toUpperCase()}_CLIENT_ID env var.`);
     }
 
-    const state = uuidv4();
-    this.oauthStates.set(state, { userId, platform, expiresAt: Date.now() + 600000 });
+    const codeVerifier = platform === 'x' ? this.createCodeVerifier() : undefined;
+    const state = this.createState(userId, platform, codeVerifier ? { codeVerifier } : {});
 
     const params = new URLSearchParams({
       client_id: config.clientId,
@@ -94,33 +144,53 @@ export class IntegrationsService {
       state,
     });
 
+    if (platform === 'youtube') {
+      params.set('access_type', 'offline');
+      params.set('prompt', 'consent');
+      params.set('include_granted_scopes', 'true');
+    }
+
+    if (platform === 'x' && codeVerifier) {
+      params.set('code_challenge', this.createCodeChallenge(codeVerifier));
+      params.set('code_challenge_method', 'S256');
+    }
+
     return `${config.authUrl}?${params.toString()}`;
   }
 
   async handleCallback(platform: string, code: string, state: string, ip?: string) {
-    const stateData = this.oauthStates.get(state);
-    if (!stateData || stateData.platform !== platform || stateData.expiresAt < Date.now()) {
-      throw new BadRequestException('Invalid or expired OAuth state');
-    }
-    this.oauthStates.delete(state);
+    const stateData = this.readState(platform, state);
 
     const config = this.getOAuthConfig(platform);
 
     // Exchange code for tokens
+    const tokenBody = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: config.redirectUri,
+      client_id: config.clientId,
+    });
+    const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' };
+
+    if (platform === 'x') {
+      if (!stateData.codeVerifier) {
+        throw new BadRequestException('Missing X OAuth code verifier');
+      }
+      tokenBody.set('code_verifier', stateData.codeVerifier);
+      tokenHeaders.Authorization = `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`;
+    } else {
+      tokenBody.set('client_secret', config.clientSecret);
+    }
+
     const tokenResponse = await fetch(config.tokenUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: config.redirectUri,
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-      }).toString(),
+      headers: tokenHeaders,
+      body: tokenBody.toString(),
     });
 
     if (!tokenResponse.ok) {
-      throw new BadRequestException(`Token exchange failed for ${platform}`);
+      const details = await tokenResponse.text().catch(() => '');
+      throw new BadRequestException(`Token exchange failed for ${platform}${details ? `: ${details}` : ''}`);
     }
 
     const tokens = await tokenResponse.json();

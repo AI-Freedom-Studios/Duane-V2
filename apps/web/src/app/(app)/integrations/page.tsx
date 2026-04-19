@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,9 +48,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function IntegrationsPage() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const [addKeyOpen, setAddKeyOpen] = useState(false);
   const [newKey, setNewKey] = useState({ providerSlug: '', label: '', apiKey: '' });
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [testMessage, setTestMessage] = useState<string | null>(null);
 
   const { data: registry } = useQuery({
     queryKey: ['provider-registry'],
@@ -82,11 +85,15 @@ export default function IntegrationsPage() {
 
   const testKeyMutation = useMutation({
     mutationFn: (id: string) => api.post<{ success: boolean; message: string }>(`/providers/keys/${id}/test`),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['provider-keys'] });
+      setTestMessage(data.message);
       setTestingId(null);
     },
-    onError: () => setTestingId(null),
+    onError: (error) => {
+      setTestMessage(error instanceof Error ? error.message : 'Connection test failed');
+      setTestingId(null);
+    },
   });
 
   const groupedProviders = registry?.reduce((acc: Record<string, any[]>, p: any) => {
@@ -99,6 +106,8 @@ export default function IntegrationsPage() {
   const testedKeys = keys?.filter((key: any) => key.lastTestStatus === true).length || 0;
   const connectedAccounts = accounts?.filter((account: any) => account.isActive).length || 0;
   const registryCount = registry?.length || 0;
+  const connectedPlatform = searchParams.get('connected');
+  const oauthError = searchParams.get('error');
 
   const handleConnect = (platform: string) => {
     const token = localStorage.getItem('agentos-token');
@@ -107,6 +116,17 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-8 pb-6">
+      {connectedPlatform ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          {connectedPlatform} connected successfully. If the card still looks stale, refresh the page once.
+        </div>
+      ) : null}
+      {oauthError ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          OAuth connection failed: {oauthError}
+        </div>
+      ) : null}
+
       <section className="surface-glow animate-fade-up relative overflow-hidden rounded-[2rem] border border-white/60 bg-slate-950 px-6 py-7 text-white shadow-2xl sm:px-8 sm:py-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.34),transparent_24%),radial-gradient(circle_at_85%_20%,rgba(20,184,166,0.28),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.98),rgba(30,41,59,0.96)_34%,rgba(37,99,235,0.88),rgba(15,118,110,0.78))]" />
         <div className="absolute right-0 top-0 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
@@ -295,7 +315,7 @@ export default function IntegrationsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => { setTestingId(key.id); testKeyMutation.mutate(key.id); }}
+                          onClick={() => { setTestMessage(null); setTestingId(key.id); testKeyMutation.mutate(key.id); }}
                           disabled={testingId === key.id}
                         >
                           {testingId === key.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
@@ -308,6 +328,9 @@ export default function IntegrationsPage() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                        {testingId === key.id ? null : testMessage ? (
+                          <span className="max-w-56 truncate text-xs text-slate-500">{testMessage}</span>
+                        ) : null}
                       </div>
                     );
                   })}

@@ -10,3 +10,8 @@ coverage/
 *.log
 .vercel
 *.tsbuildinfo
+uploads/
+apps/api/uploads/
+DockerDesktopInstaller.exe
+wsl_update_x64.msi
+_tmp_*

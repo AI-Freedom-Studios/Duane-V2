@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import PostComposerClient from './post-composer-client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +22,9 @@ import {
   FileText,
 } from 'lucide-react';
 
-export default function PostComposerPage() {
+export default PostComposerClient;
+
+function LegacyPostComposerPage() {
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');

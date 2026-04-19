@@ -177,6 +177,47 @@ export class ProviderRegistry {
     });
 
     this.register({
+      slug: 'json2video',
+      name: 'JSON2Video',
+      category: ProviderCategory.VIDEO,
+      description: 'Template-based video rendering from JSON scenes',
+      website: 'https://json2video.com',
+      requiredFields: ['apiKey'],
+      testFn: async (apiKey) => {
+        const res = await fetch('https://api.json2video.com/v2/movies', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            draft: true,
+            resolution: 'sd',
+            scenes: [
+              {
+                duration: 1,
+                'background-color': '#020617',
+                elements: [
+                  {
+                    type: 'text',
+                    text: 'AgentOS connection test',
+                    settings: {
+                      'font-size': '32px',
+                      'font-color': '#ffffff',
+                      'horizontal-position': 'center',
+                      'vertical-position': 'center',
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        });
+        return res.ok;
+      },
+    });
+
+    this.register({
       slug: 'generic_http',
       name: 'Generic HTTP Provider',
       category: ProviderCategory.VIDEO,

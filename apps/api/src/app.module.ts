@@ -13,11 +13,16 @@ import { TasksModule } from './tasks/tasks.module';
 import { AuditModule } from './audit/audit.module';
 import { JobsModule } from './jobs/jobs.module';
 import { PoeModule } from './poe/poe.module';
+import { Json2VideoModule } from './json2video/json2video.module';
+import { MediaModule } from './media/media.module';
 import { HealthController } from './health.controller';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['apps/api/.env', '.env', '../../.env'],
+    }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     BullModule.forRoot({
       connection: {
@@ -36,6 +41,8 @@ import { HealthController } from './health.controller';
     AuditModule,
     JobsModule,
     PoeModule,
+    Json2VideoModule,
+    MediaModule,
   ],
   controllers: [HealthController],
 })
