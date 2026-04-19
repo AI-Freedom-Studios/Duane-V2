@@ -9,6 +9,7 @@ COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile || pnpm install
 COPY packages/shared packages/shared
 COPY apps/web apps/web
+RUN mkdir -p apps/web/public
 RUN pnpm --filter @agentos/web run build
 
 FROM base AS runner
