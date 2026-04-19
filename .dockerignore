@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+.turbo
+**/.turbo
+coverage
+**/coverage
+*.log
+.git
+.gitignore
+DockerDesktopInstaller.exe
+wsl_update_x64.msi
+_tmp_*
