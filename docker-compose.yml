@@ -33,14 +33,16 @@ services:
       dockerfile: apps/api/Dockerfile
     ports:
       - "4000:4000"
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://agentos:agentos_dev@postgres:5432/agentos
       REDIS_URL: redis://redis:6379
       CORS_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
-      JWT_SECRET: dev-jwt-secret-change-in-prod
-      ENCRYPTION_KEY: dev-encryption-key-32bytes-change
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-prod}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32bytes-change}
       PORT: 4000
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-production}
     depends_on:
       postgres:
         condition: service_healthy
