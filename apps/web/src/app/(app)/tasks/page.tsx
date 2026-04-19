@@ -28,7 +28,7 @@ import {
   ArrowRight,
   Check,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const statusIcons: Record<string, any> = {
@@ -45,7 +45,7 @@ const statusColors: Record<string, string> = {
   FAILED: 'destructive',
 };
 
-export default function TasksPage() {
+function TasksContent() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -343,5 +343,13 @@ export default function TasksPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={null}>
+      <TasksContent />
+    </Suspense>
   );
 }

@@ -34,7 +34,7 @@ import {
   Shield,
   Zap,
 } from 'lucide-react';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 
 const platformInfo: Record<string, { name: string; color: string; note: string }> = {
   meta: { name: 'Meta (Facebook/Instagram)', color: 'bg-blue-500', note: 'Meta business and creator surfaces' },
@@ -46,7 +46,7 @@ const platformInfo: Record<string, { name: string; color: string; note: string }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-export default function IntegrationsPage() {
+function IntegrationsContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [addKeyOpen, setAddKeyOpen] = useState(false);
@@ -471,5 +471,13 @@ export default function IntegrationsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={null}>
+      <IntegrationsContent />
+    </Suspense>
   );
 }
