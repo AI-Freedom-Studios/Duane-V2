@@ -22,7 +22,7 @@ export class MediaService {
     await mkdir(this.uploadRoot, { recursive: true });
     await writeFile(join(this.uploadRoot, filename), file.buffer);
 
-    const origin = `${req.protocol}://${req.get('host')}`;
+    const origin = process.env.PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || `${req.protocol}://${req.get('host')}`;
     return {
       url: `${origin}/uploads/${filename}`,
       filename,
