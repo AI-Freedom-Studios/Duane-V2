@@ -63,7 +63,8 @@ export class PoeService {
     'DeepSeek-V3': 'DeepSeek-R1',
     'llama-3.1-405b': 'Llama-3.3-70B',
     'Llama-3.1-405B': 'Llama-3.3-70B',
-    'mixtral-8x22b': 'Mixtral8x22b-Inst-FW',
+    'mixtral-8x22b': 'mixtral8x22b-inst-fw',
+    'Mixtral8x22b-Inst-FW': 'mixtral8x22b-inst-fw',
     'qwen-2.5-72b': 'Qwen-2.5-7B-T',
     'Qwen-2.5-72B-T': 'Qwen-2.5-7B-T',
     'Qwen3-32B-CS': 'Qwen-2.5-7B-T',
@@ -97,7 +98,7 @@ export class PoeService {
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', category: 'llm', description: 'Google Gemini 2.0 Flash — fast & efficient', provider: 'Google' },
       { id: 'Llama-3.3-70B', name: 'Llama 3.3 70B', category: 'llm', description: 'Meta Llama 3.1 — largest open model', provider: 'Meta' },
       { id: 'llama-3.1-70b', name: 'Llama 3.1 70B', category: 'llm', description: 'Meta Llama 3.1 70B — balanced open model', provider: 'Meta' },
-      { id: 'Mixtral8x22b-Inst-FW', name: 'Mixtral 8x22B', category: 'llm', description: 'Mistral Mixtral MoE — fast & efficient', provider: 'Mistral' },
+      { id: 'mixtral8x22b-inst-fw', name: 'Mixtral 8x22B', category: 'llm', description: 'Mistral Mixtral MoE — fast & efficient', provider: 'Mistral' },
       { id: 'Aya-Expanse-32B', name: 'Aya Expanse 32B', category: 'llm', description: 'Cohere Command R+ — enterprise RAG', provider: 'Cohere' },
       { id: 'Qwen-2.5-7B-T', name: 'Qwen 2.5 7B', category: 'llm', description: 'Alibaba Qwen 2.5 — multilingual', provider: 'Alibaba' },
       { id: 'DeepSeek-R1', name: 'DeepSeek R1', category: 'llm', description: 'DeepSeek R1 — strong reasoning', provider: 'DeepSeek' },
@@ -138,6 +139,24 @@ export class PoeService {
 
   private normalizeModelId(modelId: string): string {
     return this.MODEL_ALIASES[modelId] || modelId;
+  }
+
+  private getChatModelCandidates(modelId: string): string[] {
+    if (modelId === 'mixtral8x22b-inst-fw') {
+      return [
+        'mixtral8x22b-inst-fw',
+        'Mixtral8x22b-Inst-FW',
+        'open-mixtral-8x22b',
+        'Mixtral-8x22B',
+        'Mixtral-8x22B-Inst',
+        'Mistral-Large',
+        'Mistral-Large-2',
+        'Mistral-Small-3',
+        'Mistral-Medium',
+      ];
+    }
+
+    return [modelId];
   }
 
   private mapVideoStatus(status?: string): 'processing' | 'completed' | 'failed' {
@@ -204,17 +223,28 @@ export class PoeService {
   private summarizePoeError(errorText: string): string {
     try {
       const parsed = JSON.parse(errorText);
-      const message =
+      let message =
         parsed?.error?.message ||
         parsed?.message ||
         parsed?.error ||
         errorText;
+
+      if (typeof message === 'string' && message.trim().startsWith('{')) {
+        message = this.summarizePoeError(message);
+      }
 
       if (typeof message === 'string') return message;
       return JSON.stringify(message);
     } catch {
       return errorText;
     }
+  }
+
+  private isRetryableModelError(status: number, errorSummary: string) {
+    return (
+      status === 404 ||
+      /model not found|not deployed|inaccessible|unknown model|does not exist|not available/i.test(errorSummary)
+    );
   }
 
   private buildStableVideoPrompt(prompt: string, duration: number, resolution: string): string {
@@ -283,41 +313,55 @@ export class PoeService {
       throw new BadRequestException(`Unknown model: ${request.model}`);
     }
 
+    const candidateModelIds = this.getChatModelCandidates(modelId);
+    let lastError = '';
+
     try {
-      const response = await fetch(`${this.POE_API_BASE}/chat/completions`, {
+      for (const candidateModelId of candidateModelIds) {
+        const response = await fetch(`${this.POE_API_BASE}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: modelId,
+          model: candidateModelId,
           messages: request.messages,
           temperature: request.temperature ?? 0.7,
           max_tokens: request.maxTokens ?? 2048,
         }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        this.logger.error(`Poe API error: ${response.status} ${errorText}`);
-        throw new BadRequestException(`Poe API error: ${response.statusText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          const errorSummary = this.summarizePoeError(errorText);
+          lastError = errorSummary || response.statusText;
+          this.logger.error(`Poe API error for ${candidateModelId}: ${response.status} ${errorText}`);
+
+          if (candidateModelIds.length > 1 && this.isRetryableModelError(response.status, lastError)) {
+            continue;
+          }
+
+          throw new BadRequestException(`Poe API error for ${model.name}: ${lastError}`);
+        }
+
+        const data = await response.json();
+        const choice = data.choices?.[0];
+        return {
+          id: data.id || `poe-${Date.now()}`,
+          model: data.model || candidateModelId,
+          provider: model.provider,
+          content: choice?.message?.content || '',
+          usage: {
+            promptTokens: data.usage?.prompt_tokens || 0,
+            completionTokens: data.usage?.completion_tokens || 0,
+            totalTokens: data.usage?.total_tokens || 0,
+          },
+          createdAt: new Date().toISOString(),
+        };
       }
 
-      const data = await response.json();
-      const choice = data.choices?.[0];
-      return {
-        id: data.id || `poe-${Date.now()}`,
-        model: data.model || modelId,
-        provider: model.provider,
-        content: choice?.message?.content || '',
-        usage: {
-          promptTokens: data.usage?.prompt_tokens || 0,
-          completionTokens: data.usage?.completion_tokens || 0,
-          totalTokens: data.usage?.total_tokens || 0,
-        },
-        createdAt: new Date().toISOString(),
-      };
+      throw new BadRequestException(`Poe API error for ${model.name}: ${lastError || 'No available Mistral fallback model found.'}`);
     } catch (error: any) {
       if (error instanceof BadRequestException) throw error;
       this.logger.error(`Poe API call failed: ${error.message}`);

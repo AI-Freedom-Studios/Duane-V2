@@ -12,4 +12,14 @@ export class SocialController {
   getAccounts(@Req() req: Request) {
     return this.service.getAccounts((req.user as any).id);
   }
+
+  @Get('metrics')
+  getMetrics(@Req() req: Request) {
+    return this.service.getMetrics((req.user as any).id);
+  }
+
+  @Get('feed')
+  getFeed(@Req() req: Request) {
+    return this.service.getFeed((req.user as any).id);
+  }
 }

@@ -37,7 +37,6 @@ const llmModels = [
   { id: 'claude-sonnet-4.5', name: 'Claude Sonnet 4.5', provider: 'Anthropic', color: 'bg-orange-500' },
   { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', provider: 'Google', color: 'bg-blue-500' },
   { id: 'Llama-3.3-70B', name: 'Llama 3.3 70B', provider: 'Meta', color: 'bg-purple-500' },
-  { id: 'Mixtral8x22b-Inst-FW', name: 'Mixtral 8x22B', provider: 'Mistral', color: 'bg-cyan-500' },
   { id: 'DeepSeek-R1', name: 'DeepSeek R1', provider: 'DeepSeek', color: 'bg-indigo-500' },
   { id: 'Qwen-2.5-7B-T', name: 'Qwen 2.5 7B', provider: 'Alibaba', color: 'bg-red-500' },
 ];
@@ -79,8 +78,8 @@ export default function AiChatPage() {
           ? 'claude-sonnet-4.5'
         : savedModel === 'llama-3.1-405b' || savedModel === 'Llama-3.1-405B'
             ? 'Llama-3.3-70B'
-            : savedModel === 'mixtral-8x22b'
-              ? 'Mixtral8x22b-Inst-FW'
+            : savedModel === 'mixtral-8x22b' || savedModel === 'mixtral8x22b-inst-fw' || savedModel === 'Mixtral8x22b-Inst-FW'
+              ? 'gpt-4o'
               : savedModel === 'qwen-2.5-72b' || savedModel === 'Qwen-2.5-72B-T' || savedModel === 'Qwen3-32B-CS'
                 ? 'Qwen-2.5-7B-T'
                 : savedModel === 'command-r-plus' || savedModel === 'Command-R-Plus' || savedModel === 'Command-R' || savedModel === 'Aya-Expanse-32B'

@@ -48,6 +48,63 @@ type SocialAccount = {
   createdAt?: string;
 };
 
+type PlatformMetrics = {
+  platform: string;
+  connected: boolean;
+  followers: number | null;
+  posts: number | null;
+  views: number | null;
+  engagementRate: number | null;
+  lastSyncedAt: string | null;
+};
+
+type PostRecord = {
+  id: string;
+  content: string;
+  status: string;
+  createdAt: string;
+  publishedAt?: string | null;
+  scheduledAt?: string | null;
+  targets?: Array<{
+    platform?: string;
+    accountName?: string;
+    status?: string;
+  }>;
+};
+
+type SocialFeedItem = {
+  id: string;
+  platform: string;
+  title: string;
+  publishedAt: string | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  url: string | null;
+};
+
+const formatCompactNumber = (value: number | null | undefined) => {
+  if (value === null || value === undefined || Number.isNaN(value)) return '--';
+  return new Intl.NumberFormat('en', {
+    notation: 'compact',
+    maximumFractionDigits: value >= 10000 ? 1 : 0,
+  }).format(value);
+};
+
+const formatRelativeTime = (value: string | null | undefined) => {
+  if (!value) return 'Just now';
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  if (!Number.isFinite(diffMs)) return 'Just now';
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+};
+
 function PlatformLogo({ platform }: { platform: string }) {
   if (platform === 'linkedin') {
     return (
@@ -89,25 +146,6 @@ function PlatformLogo({ platform }: { platform: string }) {
   );
 }
 
-const summaryMetrics = [
-  { label: 'Total reach', value: '89.2K', detail: '+12% this week', icon: Eye },
-  { label: 'Total likes', value: '12.4K', detail: 'best on TikTok', icon: Heart },
-  { label: 'Comments', value: '2,847', detail: 'strong product feedback', icon: MessageSquare },
-  { label: 'Shares', value: '1,456', detail: 'highest from LinkedIn', icon: Share2 },
-];
-
-const recentPostsData = [
-  { platform: 'LinkedIn', content: 'Excited to announce our new AI-powered campaign tools with smarter planning, unified reporting, and faster approval loops.', likes: 234, comments: 18, views: 4521, time: '2 hours ago', tone: 'Launch' },
-  { platform: 'Meta', content: 'Behind the scenes at our latest product photoshoot, from concept boards to final creative edits and rollout planning.', likes: 567, comments: 34, views: 8932, time: '5 hours ago', tone: 'Behind the scenes' },
-  { platform: 'X', content: 'Thread: 5 ways AI is transforming content creation for lean teams without slowing down brand quality.', likes: 189, comments: 42, views: 12340, time: '1 day ago', tone: 'Education' },
-];
-
-const audienceSignals = [
-  { label: 'Most active window', value: 'Tue-Thu, 9 AM', detail: 'Best response for launch and education posts' },
-  { label: 'Top segment', value: 'Founders + marketers', detail: 'Strongest engagement across LinkedIn and X' },
-  { label: 'Fastest growing channel', value: 'TikTok', detail: 'Short-form product clips are outperforming' },
-];
-
 export default function SocialMediaPage() {
   const queryClient = useQueryClient();
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
@@ -117,17 +155,135 @@ export default function SocialMediaPage() {
     queryFn: () => api.get<SocialAccount[]>('/social/accounts'),
   });
 
+  const { data: metrics } = useQuery({
+    queryKey: ['social-metrics'],
+    queryFn: () => api.get<Record<string, PlatformMetrics>>('/social/metrics'),
+  });
+
+  const { data: postsData } = useQuery({
+    queryKey: ['social-posts-summary'],
+    queryFn: () => api.get<{ data: PostRecord[]; total: number }>('/posts?limit=100'),
+  });
+
+  const { data: socialFeed } = useQuery({
+    queryKey: ['social-feed'],
+    queryFn: () => api.get<SocialFeedItem[]>('/social/feed'),
+  });
+
   const activeAccounts = accounts?.filter((account: any) => account.isActive) || [];
+  const workspacePosts = postsData?.data || [];
   const connectedPlatforms = new Set(activeAccounts.map((account) => account.platform)).size;
   const connectedCount = connectedPlatforms;
+  const metricsList = Object.values(metrics || {});
+  const totalFollowers = metricsList.reduce((sum, metric) => sum + (metric.followers || 0), 0);
+  const totalViews = metricsList.reduce((sum, metric) => sum + (metric.views || 0), 0);
+  const publishedWorkspacePosts = workspacePosts.filter((post) => post.status === 'PUBLISHED');
+  const publishedPosts = publishedWorkspacePosts.length;
+  const scheduledPosts = workspacePosts.filter((post) => post.status === 'SCHEDULED').length;
+  const failedPosts = workspacePosts.filter((post) => post.status === 'FAILED').length;
+  const totalFeedLikes = (socialFeed || []).reduce((sum, item) => sum + (item.likes || 0), 0);
+  const totalFeedComments = (socialFeed || []).reduce((sum, item) => sum + (item.comments || 0), 0);
+  const latestSync = metricsList
+    .map((metric) => metric.lastSyncedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
+  const liveFeedItems = (socialFeed || []).slice(0, 5);
+  const recentWorkspaceItems = workspacePosts.slice(0, 5);
+  const recentItems = liveFeedItems.length > 0
+    ? liveFeedItems.map((item) => ({
+        id: item.id,
+        platform: item.platform,
+        content: item.title,
+        likes: item.likes,
+        comments: item.comments,
+        views: item.views,
+        time: formatRelativeTime(item.publishedAt),
+        tone: 'Live upload',
+        href: item.url,
+      }))
+    : recentWorkspaceItems.map((post) => ({
+        id: post.id,
+        platform: post.targets?.[0]?.platform || 'Workspace',
+        content: post.content,
+        likes: null,
+        comments: null,
+        views: null,
+        time: formatRelativeTime(post.publishedAt || post.createdAt),
+        tone: post.status,
+        href: null,
+      }));
+  const largestAudiencePlatform = metricsList
+    .filter((metric) => metric.followers !== null)
+    .sort((a, b) => (b.followers || 0) - (a.followers || 0))[0];
+  const highestVolumePlatform = metricsList
+    .filter((metric) => metric.posts !== null)
+    .sort((a, b) => (b.posts || 0) - (a.posts || 0))[0];
+  const bestViewsPlatform = metricsList
+    .filter((metric) => metric.views !== null)
+    .sort((a, b) => (b.views || 0) - (a.views || 0))[0];
+  const chartMetrics = platformStats.map((platform) => ({
+    label: platform.platform.slice(0, 3).toUpperCase(),
+    value: metrics?.[platform.id]?.followers || metrics?.[platform.id]?.views || 0,
+  }));
+  const chartMax = Math.max(...chartMetrics.map((item) => item.value), 1);
+  const summaryCards = [
+    { label: 'Live audience', value: connectedCount > 0 ? formatCompactNumber(totalFollowers) : '--', detail: 'Combined followers/subscribers across connected accounts', icon: Eye },
+    { label: 'Channel views', value: connectedCount > 0 ? formatCompactNumber(totalViews) : '--', detail: 'Live video/channel views from connected platforms', icon: Heart },
+    { label: 'Published posts', value: String(publishedPosts), detail: `${scheduledPosts} scheduled, ${failedPosts} failed`, icon: MessageSquare },
+    { label: 'Live feed items', value: String(liveFeedItems.length), detail: liveFeedItems.length > 0 ? 'Recent uploads pulled from connected social platforms' : 'No live social uploads available yet', icon: Share2 },
+  ];
+  const quickSignals = [
+    {
+      label: 'Latest sync',
+      value: latestSync ? new Date(latestSync).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Not synced yet',
+      detail: latestSync ? 'Most recent successful platform refresh' : 'Connect a platform to start live sync',
+    },
+    {
+      label: 'Largest audience',
+      value: largestAudiencePlatform ? `${largestAudiencePlatform.platform}` : 'No live data',
+      detail: largestAudiencePlatform ? `${formatCompactNumber(largestAudiencePlatform.followers)} followers/subscribers` : 'Audience size appears after live metrics load',
+    },
+    {
+      label: 'Most recent publish',
+      value: publishedWorkspacePosts[0]?.publishedAt ? formatRelativeTime(publishedWorkspacePosts[0].publishedAt) : 'No published posts',
+      detail: publishedWorkspacePosts[0]?.targets?.[0]?.platform || 'Publish from Post Composer to build the history',
+    },
+  ];
+  const liveHeroCards = [
+    {
+      label: 'Connected platforms',
+      value: String(connectedCount),
+      detail: 'Ready for scheduling, publishing, and reporting.',
+    },
+    {
+      label: 'Live subscribers',
+      value: connectedCount > 0 ? formatCompactNumber(totalFollowers) : '--',
+      detail: connectedCount > 0 ? 'Pulled from connected account metrics.' : 'Connect an account to load live audience data.',
+    },
+    {
+      label: 'Channel views',
+      value: connectedCount > 0 ? formatCompactNumber(totalViews) : '--',
+      detail: connectedCount > 0 ? `${publishedPosts} published post${publishedPosts === 1 ? '' : 's'} in this workspace.` : 'Live platform performance appears here once connected.',
+    },
+  ];
   const getPlatformAccounts = (platform: string) => activeAccounts.filter((account) => account.platform === platform);
   const platformCards = platformStats.map((stat) => {
     const connectedAccounts = getPlatformAccounts(stat.id);
+    const liveMetrics = metrics?.[stat.id];
+    const hasLiveFollowers = liveMetrics?.followers !== null && liveMetrics?.followers !== undefined;
+    const hasLiveViews = liveMetrics?.views !== null && liveMetrics?.views !== undefined;
+    const hasLivePosts = liveMetrics?.posts !== null && liveMetrics?.posts !== undefined;
 
     return {
       ...stat,
       connectedAccounts,
       isConnected: connectedAccounts.length > 0,
+      metricValue: stat.id === 'youtube' && hasLiveFollowers ? formatCompactNumber(liveMetrics?.followers) : stat.followers,
+      metricCaption: stat.id === 'youtube' && hasLiveFollowers ? 'live subscribers' : 'benchmark followers',
+      engagementLabel: stat.id === 'youtube' && hasLiveViews ? 'Views' : 'Engagement',
+      engagementValue: stat.id === 'youtube' && hasLiveViews ? formatCompactNumber(liveMetrics?.views) : stat.engagement,
+      postsValue: stat.id === 'youtube' && hasLivePosts ? liveMetrics?.posts : stat.posts,
     };
   });
 
@@ -135,6 +291,9 @@ export default function SocialMediaPage() {
     mutationFn: (accountId: string) => api.delete(`/integrations/oauth/${accountId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['social-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['social-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['social-feed'] });
+      queryClient.invalidateQueries({ queryKey: ['social-posts-summary'] });
     },
     onSettled: () => {
       setDisconnectingId(null);
@@ -181,21 +340,13 @@ export default function SocialMediaPage() {
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Connected platforms</p>
-                <p className="mt-2 text-3xl font-semibold text-white">{connectedCount}</p>
-                <p className="mt-1 text-sm text-slate-200">Ready for scheduling, publishing, and reporting.</p>
-              </div>
-              <div className="rounded-2xl border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Weekly growth</p>
-                <p className="mt-2 text-3xl font-semibold text-white">+6.1%</p>
-                <p className="mt-1 text-sm text-slate-200">Audience trend across the current dashboard sample.</p>
-              </div>
-              <div className="rounded-2xl border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Publishing tempo</p>
-                <p className="mt-2 text-3xl font-semibold text-white">1.6/day</p>
-                <p className="mt-1 text-sm text-slate-200">A steady cadence built for reach without fatigue.</p>
-              </div>
+              {liveHeroCards.map((card) => (
+                <div key={card.label} className="rounded-2xl border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-300">{card.label}</p>
+                  <p className="mt-2 text-3xl font-semibold text-white">{card.value}</p>
+                  <p className="mt-1 text-sm text-slate-200">{card.detail}</p>
+                </div>
+              ))}
             </div>
             <div className="flex flex-wrap gap-3">
               <Link href="/post-composer">
@@ -232,7 +383,10 @@ export default function SocialMediaPage() {
                   <div key={account.id} className="flex items-center justify-between rounded-[1.35rem] border border-white/12 bg-white/8 px-4 py-3">
                     <div>
                       <p className="font-medium text-white">{account.accountName}</p>
-                      <p className="text-xs text-slate-300">{account.platform}</p>
+                      <p className="text-xs text-slate-300">
+                        {account.platform}
+                        {latestSync ? ` • synced ${new Date(latestSync).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}
+                      </p>
                     </div>
                     <Badge className="border-0 bg-emerald-400/15 text-emerald-100">Active</Badge>
                   </div>
@@ -243,7 +397,9 @@ export default function SocialMediaPage() {
                 <p className="mt-2 text-sm leading-6 text-slate-100">
                   {connectedCount === 0
                     ? 'Connect at least one social account, then use Post Composer to publish from the same workspace.'
-                    : 'Use Post Composer to turn your strongest-performing theme into the next scheduled campaign.'}
+                    : publishedPosts > 0
+                      ? `You have ${publishedPosts} published post${publishedPosts === 1 ? '' : 's'} in this workspace. Build the next one from Post Composer.`
+                      : 'Your live account is connected. Publish your first post from Post Composer to start building workspace-level performance data.'}
                 </p>
               </div>
             </div>
@@ -273,23 +429,23 @@ export default function SocialMediaPage() {
               </div>
               <div>
                 <p className="text-3xl font-semibold tracking-tight text-slate-950">
-                  {stat.isConnected ? stat.followers : 'Connect'}
+                  {stat.isConnected ? stat.metricValue : 'Connect'}
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
-                  {stat.isConnected ? 'benchmark followers' : 'to enable publishing'}
+                  {stat.isConnected ? stat.metricCaption : 'to enable publishing'}
                 </p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Engagement</span>
+                  <span className="text-slate-500">{stat.engagementLabel}</span>
                   <span className={`flex items-center gap-1 font-medium ${stat.isConnected ? 'text-emerald-600' : 'text-slate-400'}`}>
                     <TrendingUp className="h-3.5 w-3.5" />
-                    {stat.isConnected ? stat.engagement : '--'}
+                    {stat.isConnected ? stat.engagementValue : '--'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500">Posts</span>
-                  <span className="font-medium text-slate-900">{stat.isConnected ? stat.posts : '--'}</span>
+                  <span className="font-medium text-slate-900">{stat.isConnected ? stat.postsValue : '--'}</span>
                 </div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-600">{stat.focus}</div>
@@ -345,7 +501,7 @@ export default function SocialMediaPage() {
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {summaryMetrics.map((metric) => {
+            {summaryCards.map((metric) => {
               const Icon = metric.icon;
 
               return (
@@ -383,8 +539,8 @@ export default function SocialMediaPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 p-6">
-                {recentPostsData.map((post) => (
-                  <div key={`${post.platform}-${post.time}`} className="rounded-[1.5rem] border border-slate-200 bg-slate-50/75 p-5">
+                {recentItems.length > 0 ? recentItems.map((post) => (
+                  <div key={post.id} className="rounded-[1.5rem] border border-slate-200 bg-slate-50/75 p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -394,28 +550,38 @@ export default function SocialMediaPage() {
                           <Badge className="border-0 bg-slate-900/5 text-slate-600">{post.tone}</Badge>
                           <span className="text-xs text-slate-500">{post.time}</span>
                         </div>
-                        <p className="text-base leading-7 text-slate-900">{post.content}</p>
+                        {post.href ? (
+                          <a href={post.href} target="_blank" rel="noreferrer" className="text-base leading-7 text-slate-900 hover:text-blue-700">
+                            {post.content}
+                          </a>
+                        ) : (
+                          <p className="text-base leading-7 text-slate-900">{post.content}</p>
+                        )}
                       </div>
                       <div className="grid shrink-0 grid-cols-3 gap-2 lg:w-[260px]">
                         <div className="rounded-2xl bg-white px-3 py-3 text-center">
                           <Heart className="mx-auto h-4 w-4 text-slate-500" />
-                          <p className="mt-2 text-lg font-semibold text-slate-900">{post.likes}</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-900">{formatCompactNumber(post.likes)}</p>
                           <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Likes</p>
                         </div>
                         <div className="rounded-2xl bg-white px-3 py-3 text-center">
                           <MessageSquare className="mx-auto h-4 w-4 text-slate-500" />
-                          <p className="mt-2 text-lg font-semibold text-slate-900">{post.comments}</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-900">{formatCompactNumber(post.comments)}</p>
                           <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Comments</p>
                         </div>
                         <div className="rounded-2xl bg-white px-3 py-3 text-center">
                           <Eye className="mx-auto h-4 w-4 text-slate-500" />
-                          <p className="mt-2 text-lg font-semibold text-slate-900">{post.views.toLocaleString()}</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-900">{formatCompactNumber(post.views)}</p>
                           <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Views</p>
                         </div>
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/75 p-5 text-sm text-slate-500">
+                    No live social uploads or workspace posts yet. Publish from Post Composer or connect a platform with recent activity.
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -426,7 +592,7 @@ export default function SocialMediaPage() {
                   <CardDescription>Useful cues for what to post next.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {audienceSignals.map((signal) => (
+                  {quickSignals.map((signal) => (
                     <div key={signal.label} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{signal.label}</p>
                       <p className="mt-2 text-lg font-semibold text-slate-900">{signal.value}</p>
@@ -439,12 +605,16 @@ export default function SocialMediaPage() {
               <Card className="overflow-hidden border-slate-200 bg-[linear-gradient(135deg,#f8fafc,#eef6ff,#ecfeff)]">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg">Next campaign move</CardTitle>
-                  <CardDescription>Where this page should guide the team next.</CardDescription>
+                  <CardDescription>Generated from the current live workspace state.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="rounded-2xl bg-white/80 p-4">
                     <p className="text-sm leading-6 text-slate-700">
-                      Your strongest angle right now is educational product storytelling. Package the same core idea into a LinkedIn explainer, an X thread, and a short-form teaser.
+                      {connectedCount === 0
+                        ? 'Connect a social account first so the page can pull live platform data and guide your next campaign with real signals.'
+                        : publishedPosts > 0
+                          ? `You already have ${publishedPosts} published post${publishedPosts === 1 ? '' : 's'}. Reuse the strongest theme from your recent output and schedule the next follow-up post.`
+                          : 'Your live account is connected but there are no published workspace posts yet. Create the first post to start building real campaign history.'}
                     </p>
                   </div>
                   <Link href="/post-composer">
@@ -463,42 +633,42 @@ export default function SocialMediaPage() {
             <Card className="overflow-hidden border-slate-200 bg-white/92">
               <CardHeader>
                 <CardTitle className="text-xl">Performance snapshot</CardTitle>
-                <CardDescription>A stronger placeholder for cross-platform analytics until live charting is wired in.</CardDescription>
+                <CardDescription>Live summary of the currently connected social accounts and workspace publishing history.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-sm text-slate-500">Best channel</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-950">TikTok</p>
-                    <p className="mt-1 text-sm text-emerald-600">7.2% engagement</p>
+                    <p className="text-sm text-slate-500">Most viewed channel</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-950">{bestViewsPlatform ? bestViewsPlatform.platform : 'No live data'}</p>
+                    <p className="mt-1 text-sm text-emerald-600">{bestViewsPlatform ? `${formatCompactNumber(bestViewsPlatform.views)} views` : 'Connect a live social account'}</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-sm text-slate-500">Largest audience</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-950">Meta</p>
-                    <p className="mt-1 text-sm text-slate-500">34.7K followers</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-950">{largestAudiencePlatform ? largestAudiencePlatform.platform : 'No live data'}</p>
+                    <p className="mt-1 text-sm text-slate-500">{largestAudiencePlatform ? `${formatCompactNumber(largestAudiencePlatform.followers)} followers/subscribers` : 'Audience appears after metrics load'}</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-sm text-slate-500">Highest volume</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-950">X</p>
-                    <p className="mt-1 text-sm text-slate-500">524 posts</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-950">{highestVolumePlatform ? highestVolumePlatform.platform : 'Workspace'}</p>
+                    <p className="mt-1 text-sm text-slate-500">{highestVolumePlatform ? `${formatCompactNumber(highestVolumePlatform.posts)} live posts/videos` : `${publishedPosts} published workspace posts`}</p>
                   </div>
                 </div>
                 <div className="rounded-[1.7rem] border border-slate-200 bg-[linear-gradient(180deg,#f8fafc,#ffffff)] p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-slate-900">Cross-channel momentum</p>
-                      <p className="text-sm text-slate-500">Mock analytics shell for the current dashboard state</p>
+                      <p className="text-sm text-slate-500">Live comparison using connected platform metrics.</p>
                     </div>
                     <BarChart3 className="h-5 w-5 text-slate-400" />
                   </div>
                   <div className="mt-6 grid grid-cols-7 items-end gap-3">
-                    {[42, 58, 37, 74, 62, 81, 69].map((height, index) => (
-                      <div key={`${height}-${index}`} className="space-y-2">
+                    {chartMetrics.map((item) => (
+                      <div key={item.label} className="space-y-2">
                         <div
                           className="rounded-t-2xl bg-[linear-gradient(180deg,#0f172a,#2563eb,#14b8a6)]"
-                          style={{ height: `${height * 1.6}px` }}
+                          style={{ height: `${Math.max((item.value / chartMax) * 130, item.value > 0 ? 18 : 8)}px` }}
                         />
-                        <p className="text-center text-xs text-slate-400">D{index + 1}</p>
+                        <p className="text-center text-xs text-slate-400">{item.label}</p>
                       </div>
                     ))}
                   </div>
@@ -508,18 +678,18 @@ export default function SocialMediaPage() {
 
             <Card className="overflow-hidden border-slate-200 bg-white/90">
               <CardHeader>
-                <CardTitle className="text-lg">Analytics note</CardTitle>
-                <CardDescription>What will improve when live account metrics are connected.</CardDescription>
+                <CardTitle className="text-lg">Live coverage</CardTitle>
+                <CardDescription>What this page is currently reading from live sources.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-slate-600">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  Per-platform reach and engagement trends can replace the current static benchmark cards.
+                  Connected account status is live for every supported platform.
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  Time-series charts can compare content themes, posting windows, and account-level output.
+                  YouTube subscribers, views, video count, and recent uploads are now live.
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  Campaign attribution can roll up results from connected accounts into one reporting layer.
+                  Workspace post history is live from AgentOS and fills the remaining summaries.
                 </div>
               </CardContent>
             </Card>
@@ -531,35 +701,35 @@ export default function SocialMediaPage() {
             <Card className="overflow-hidden border-slate-200 bg-white/92">
               <CardHeader>
                 <CardTitle className="text-xl">Audience signals</CardTitle>
-                <CardDescription>A friendlier audience view until deeper profile data is available.</CardDescription>
+                <CardDescription>Live audience view based on the data currently available from connected platforms.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
                   <Users className="h-5 w-5 text-slate-500" />
-                  <p className="mt-4 text-lg font-semibold text-slate-900">Primary audience</p>
+                  <p className="mt-4 text-lg font-semibold text-slate-900">Connected audience</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Founders, growth operators, and marketers looking for faster content systems with cleaner reporting.
+                    {connectedCount > 0 ? `${formatCompactNumber(totalFollowers)} total followers/subscribers are visible across your connected accounts.` : 'Connect at least one social account to expose live audience size.'}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
                   <TrendingUp className="h-5 w-5 text-slate-500" />
-                  <p className="mt-4 text-lg font-semibold text-slate-900">Behavior pattern</p>
+                  <p className="mt-4 text-lg font-semibold text-slate-900">Current activity</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Educational and behind-the-scenes content drives stronger saves, comments, and deeper read-through.
+                    {liveFeedItems.length > 0 ? `${liveFeedItems.length} recent live social upload${liveFeedItems.length === 1 ? '' : 's'} are available for review on this page.` : 'No live social uploads are available yet from connected platforms.'}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
                   <Globe className="h-5 w-5 text-slate-500" />
-                  <p className="mt-4 text-lg font-semibold text-slate-900">Channel fit</p>
+                  <p className="mt-4 text-lg font-semibold text-slate-900">Channel leader</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    LinkedIn and X work well for expertise positioning, while TikTok wins on attention and early discovery.
+                    {largestAudiencePlatform ? `${largestAudiencePlatform.platform} currently has the largest visible audience in the connected stack.` : 'A channel leader appears once live platform metrics are available.'}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
                   <Share2 className="h-5 w-5 text-slate-500" />
                   <p className="mt-4 text-lg font-semibold text-slate-900">Content cue</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Repurpose the same campaign idea into multiple narrative formats instead of publishing one-size-fits-all copy.
+                    {publishedPosts > 0 ? `You have ${publishedPosts} published workspace post${publishedPosts === 1 ? '' : 's'} to learn from. Reuse the strongest recent theme in the next campaign.` : 'Publish the first post to create a live content trail the audience page can build on.'}
                   </p>
                 </div>
               </CardContent>
@@ -568,20 +738,20 @@ export default function SocialMediaPage() {
             <Card className="overflow-hidden border-slate-200 bg-white/90">
               <CardHeader>
                 <CardTitle className="text-lg">Audience readiness</CardTitle>
-                <CardDescription>Simple operational snapshot.</CardDescription>
+                <CardDescription>Operational snapshot from live data.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Reach quality</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950">High intent</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Reach size</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950">{connectedCount > 0 ? formatCompactNumber(totalFollowers) : '--'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Community temperature</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950">Warming up</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Visible engagement</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950">{formatCompactNumber(totalFeedLikes + totalFeedComments)}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Best next content</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950">Educational series</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Next content basis</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950">{recentItems[0]?.platform || 'No live signal yet'}</p>
                 </div>
               </CardContent>
             </Card>

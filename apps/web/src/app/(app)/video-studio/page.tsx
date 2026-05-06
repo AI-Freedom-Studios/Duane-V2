@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 
 const poeVideoModels = [
-  { id: 'sora-2', name: 'Sora 2', provider: 'OpenAI', quality: '8K', badge: 'Top Pick', badgeColor: 'bg-amber-500' },
   { id: 'veo-3', name: 'Veo 3', provider: 'Google', quality: '4K', badge: 'New', badgeColor: 'bg-emerald-500' },
   { id: 'kling-2.1-master', name: 'Kling 2.1 Master', provider: 'Kuaishou', quality: '4K', badge: 'Popular', badgeColor: 'bg-sky-500' },
   { id: 'runway-gen-4.5', name: 'Runway Gen-4.5', provider: 'Runway', quality: '4K', badge: 'Cinematic', badgeColor: 'bg-slate-700' },
@@ -43,9 +42,9 @@ const quickPrompts = [
 ];
 
 const studioSignals = [
-  { label: 'Ready models', value: '8', detail: 'curated from your Poe access' },
+  { label: 'Ready models', value: '7', detail: 'curated from your Poe access' },
   { label: 'Fastest turn', value: '< 2 min', detail: 'for lighter 1080p concepts' },
-  { label: 'Best output', value: '8K', detail: 'with cinematic model picks' },
+  { label: 'Best output', value: '4K', detail: 'with cinematic model picks' },
 ];
 
 const workflowSteps = [
@@ -63,11 +62,6 @@ const defaultDurationOptions = [
 ];
 
 const modelDurationOptions: Record<string, Array<{ value: string; label: string }>> = {
-  'sora-2': [
-    { value: '4', label: '4 seconds' },
-    { value: '8', label: '8 seconds' },
-    { value: '12', label: '12 seconds' },
-  ],
   'veo-3': [
     { value: '4', label: '4 seconds' },
     { value: '6', label: '6 seconds' },
@@ -130,7 +124,7 @@ const formatLibraryDate = (value: string) => {
 
 export default function VideoStudioPage() {
   const [prompt, setPrompt] = useState('');
-  const [selectedModel, setSelectedModel] = useState('sora-2');
+  const [selectedModel, setSelectedModel] = useState('veo-3');
   const [duration, setDuration] = useState('4');
   const [resolution, setResolution] = useState('1280x720');
   const [isGenerating, setIsGenerating] = useState(false);
