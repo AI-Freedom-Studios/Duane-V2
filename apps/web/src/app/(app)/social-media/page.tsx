@@ -271,26 +271,46 @@ export default function SocialMediaPage() {
   const platformCards = platformStats.map((stat) => {
     const connectedAccounts = getPlatformAccounts(stat.id);
     const liveMetrics = metrics?.[stat.id];
+    const isConnected = connectedAccounts.length > 0;
     const hasLiveFollowers = liveMetrics?.followers !== null && liveMetrics?.followers !== undefined;
     const hasLiveViews = liveMetrics?.views !== null && liveMetrics?.views !== undefined;
     const hasLivePosts = liveMetrics?.posts !== null && liveMetrics?.posts !== undefined;
     const hasLiveEngagement = liveMetrics?.engagementRate !== null && liveMetrics?.engagementRate !== undefined;
     const supportsLiveAudience = stat.id === 'youtube' || stat.id === 'x';
+    const supportsLiveCardMetrics = stat.id === 'youtube' || stat.id === 'x';
     const liveMetricCaption = stat.id === 'youtube' ? 'live subscribers' : 'live followers';
 
     return {
       ...stat,
       connectedAccounts,
-      isConnected: connectedAccounts.length > 0,
-      metricValue: supportsLiveAudience && hasLiveFollowers ? formatCompactNumber(liveMetrics?.followers) : stat.followers,
-      metricCaption: supportsLiveAudience && hasLiveFollowers ? liveMetricCaption : 'benchmark followers',
-      engagementLabel: hasLiveViews ? 'Views' : hasLiveEngagement ? 'Engagement' : 'Engagement',
+      isConnected,
+      metricValue: supportsLiveAudience
+        ? hasLiveFollowers
+          ? formatCompactNumber(liveMetrics?.followers)
+          : isConnected
+            ? '--'
+            : stat.followers
+        : stat.followers,
+      metricCaption: supportsLiveAudience
+        ? hasLiveFollowers
+          ? liveMetricCaption
+          : isConnected
+            ? 'live data pending'
+            : 'benchmark followers'
+        : 'benchmark followers',
+      engagementLabel: hasLiveViews ? 'Views' : 'Engagement',
       engagementValue: hasLiveViews
         ? formatCompactNumber(liveMetrics?.views)
         : hasLiveEngagement
           ? `${liveMetrics?.engagementRate?.toFixed(1)}%`
-          : stat.engagement,
-      postsValue: hasLivePosts ? liveMetrics?.posts : stat.posts,
+          : supportsLiveCardMetrics && isConnected
+            ? '--'
+            : stat.engagement,
+      postsValue: hasLivePosts
+        ? liveMetrics?.posts
+        : supportsLiveCardMetrics && isConnected
+          ? '--'
+          : stat.posts,
     };
   });
 
