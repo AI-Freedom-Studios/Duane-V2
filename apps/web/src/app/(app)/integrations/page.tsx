@@ -53,6 +53,7 @@ function IntegrationsContent() {
   const [newKey, setNewKey] = useState({ providerSlug: '', label: '', apiKey: '' });
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [disconnectingAccountId, setDisconnectingAccountId] = useState<string | null>(null);
 
   const { data: registry } = useQuery({
     queryKey: ['provider-registry'],
@@ -96,6 +97,19 @@ function IntegrationsContent() {
     },
   });
 
+  const disconnectAccountMutation = useMutation({
+    mutationFn: (accountId: string) => api.delete(`/integrations/oauth/${accountId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['social-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['social-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['social-feed'] });
+      queryClient.invalidateQueries({ queryKey: ['social-posts-summary'] });
+    },
+    onSettled: () => {
+      setDisconnectingAccountId(null);
+    },
+  });
+
   const groupedProviders = registry?.reduce((acc: Record<string, any[]>, p: any) => {
     if (!acc[p.category]) acc[p.category] = [];
     acc[p.category].push(p);
@@ -112,6 +126,11 @@ function IntegrationsContent() {
   const handleConnect = (platform: string) => {
     const token = localStorage.getItem('agentos-token');
     window.location.href = `${API_URL}/integrations/oauth/${platform}/connect?token=${token}`;
+  };
+
+  const handleDisconnect = (accountId: string) => {
+    setDisconnectingAccountId(accountId);
+    disconnectAccountMutation.mutate(accountId);
   };
 
   return (
@@ -411,8 +430,19 @@ function IntegrationsContent() {
                     {connectedAccounts.map((account: any) => (
                       <div key={account.id} className="mb-2 flex items-center justify-between rounded-xl bg-muted/50 p-3 text-sm">
                         <span>{account.accountName}</span>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive">
-                          <Unlink className="mr-1 h-3 w-3" /> Disconnect
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-destructive"
+                          onClick={() => handleDisconnect(account.id)}
+                          disabled={disconnectingAccountId === account.id}
+                        >
+                          {disconnectingAccountId === account.id ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Unlink className="mr-1 h-3 w-3" />
+                          )}
+                          Disconnect
                         </Button>
                       </div>
                     ))}
