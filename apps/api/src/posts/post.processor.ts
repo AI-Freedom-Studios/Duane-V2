@@ -55,6 +55,8 @@ export class PostProcessor extends WorkerHost {
         let platformPostId: string;
         if (platform === 'youtube') {
           platformPostId = await this.publishToYouTube(post, target, tokens);
+        } else if (platform === 'x') {
+          platformPostId = await this.publishToX(post, target, tokens);
         } else {
           throw new Error(`${target.socialAccount.platform} live publishing is not configured yet.`);
         }
@@ -133,6 +135,43 @@ export class PostProcessor extends WorkerHost {
     }
   }
 
+  private async publishToX(post: any, target: any, tokens: OAuthTokens) {
+    if (!tokens.access_token) {
+      throw new Error('X access token is missing. Reconnect the X account.');
+    }
+
+    try {
+      return await this.createXPost(tokens.access_token, post.content, post.mediaUrls || []);
+    } catch (error: any) {
+      const message = String(error?.message || error);
+      if (!message.startsWith('X_AUTH_FAILED') || !tokens.refresh_token) {
+        throw error;
+      }
+
+      this.logger.warn(`Refreshing X token for ${target.socialAccount.accountName}`);
+      const refreshed = await this.refreshXTokens(tokens.refresh_token);
+      const mergedTokens = {
+        ...tokens,
+        ...refreshed,
+        refresh_token: refreshed.refresh_token || tokens.refresh_token,
+      };
+
+      await this.prisma.socialAccount.update({
+        where: { id: target.socialAccount.id },
+        data: {
+          encryptedTokens: encrypt(JSON.stringify(mergedTokens)),
+          lastSyncAt: new Date(),
+        },
+      });
+
+      if (!mergedTokens.access_token || typeof mergedTokens.access_token !== 'string') {
+        throw new Error('X token refresh did not return an access token.');
+      }
+
+      return this.createXPost(mergedTokens.access_token, post.content, post.mediaUrls || []);
+    }
+  }
+
   private async uploadYouTubeVideo(accessToken: string, content: string, mediaUrl: string) {
     const mediaResponse = await fetch(mediaUrl);
     if (!mediaResponse.ok) {
@@ -206,6 +245,60 @@ export class PostProcessor extends WorkerHost {
     return uploaded.id;
   }
 
+  private async createXPost(accessToken: string, content: string, mediaUrls: string[]) {
+    const text = this.buildXPostText(content, mediaUrls);
+    const response = await fetch('https://api.x.com/2/tweets', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (response.status === 401) {
+      throw new Error(`X_AUTH_FAILED: ${await response.text()}`);
+    }
+
+    const responseBody = await response.text();
+    let parsed: any = null;
+    try {
+      parsed = responseBody ? JSON.parse(responseBody) : null;
+    } catch {
+      parsed = null;
+    }
+
+    if (!response.ok) {
+      const message =
+        parsed?.errors?.[0]?.detail ||
+        parsed?.detail ||
+        parsed?.title ||
+        responseBody ||
+        response.statusText;
+      throw new Error(`X publishing failed (${response.status}): ${message}`);
+    }
+
+    const postId = parsed?.data?.id;
+    if (!postId) {
+      throw new Error('X post creation succeeded, but no post ID was returned.');
+    }
+
+    return postId;
+  }
+
+  private buildXPostText(content: string, mediaUrls: string[]) {
+    const trimmedContent = content.trim();
+    const trimmedUrls = mediaUrls
+      .map((url) => String(url || '').trim())
+      .filter(Boolean);
+
+    if (trimmedUrls.length === 0) {
+      return trimmedContent;
+    }
+
+    return [trimmedContent, ...trimmedUrls].filter(Boolean).join('\n');
+  }
+
   private async refreshGoogleTokens(refreshToken: string) {
     const clientId = this.config.get<string>('YOUTUBE_CLIENT_ID');
     const clientSecret = this.config.get<string>('YOUTUBE_CLIENT_SECRET');
@@ -227,6 +320,34 @@ export class PostProcessor extends WorkerHost {
 
     if (!response.ok) {
       throw new Error(`YouTube token refresh failed (${response.status}): ${await response.text()}`);
+    }
+
+    return response.json() as Promise<OAuthTokens>;
+  }
+
+  private async refreshXTokens(refreshToken: string) {
+    const clientId = this.config.get<string>('X_CLIENT_ID');
+    const clientSecret = this.config.get<string>('X_CLIENT_SECRET');
+
+    if (!clientId || !clientSecret) {
+      throw new Error('X OAuth credentials are missing on the API server.');
+    }
+
+    const response = await fetch('https://api.x.com/2/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+      },
+      body: new URLSearchParams({
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+        client_id: clientId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`X token refresh failed (${response.status}): ${await response.text()}`);
     }
 
     return response.json() as Promise<OAuthTokens>;
