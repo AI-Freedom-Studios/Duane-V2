@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | AgentOS',
-  description: 'Terms of Service for AgentOS by AI Freedom Studios.',
+  title: 'Terms of Service | AIFREEDOMSTUDIOS',
+  description: 'Terms of Service for AIFREEDOMSTUDIOS and AgentOS by AI Freedom Studios.',
 };
 
 const sections = [
@@ -51,7 +51,7 @@ export default function TermsPage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-8 flex items-center justify-between gap-4">
           <Link href="/" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
-            AgentOS
+            AIFREEDOMSTUDIOS
           </Link>
           <Link href="/privacy" className="text-sm text-slate-600 hover:text-slate-950">
             Privacy Policy
@@ -62,7 +62,7 @@ export default function TermsPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-blue-700">Legal</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">Terms of Service</h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-            These terms describe how AgentOS may be used for AI-assisted content creation, social publishing, provider management, and connected account workflows.
+            These terms describe how AIFREEDOMSTUDIOS and AgentOS may be used for AI-assisted content creation, social publishing, provider management, and connected account workflows.
           </p>
           <p className="mt-4 text-sm text-slate-500">Last updated: April 13, 2026</p>
         </section>

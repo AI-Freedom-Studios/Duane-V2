@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | AgentOS',
-  description: 'Privacy Policy for AgentOS by AI Freedom Studios.',
+  title: 'Privacy Policy | AIFREEDOMSTUDIOS',
+  description: 'Privacy Policy for AIFREEDOMSTUDIOS and AgentOS by AI Freedom Studios.',
 };
 
 const sections = [
@@ -51,7 +51,7 @@ export default function PrivacyPage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-8 flex items-center justify-between gap-4">
           <Link href="/" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
-            AgentOS
+            AIFREEDOMSTUDIOS
           </Link>
           <Link href="/terms" className="text-sm text-slate-600 hover:text-slate-950">
             Terms of Service
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-teal-700">Privacy</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">Privacy Policy</h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-            This policy explains how AgentOS handles information for AI workflows, social platform connections, video generation, provider keys, and workspace activity.
+            This policy explains how AIFREEDOMSTUDIOS and AgentOS handle information for AI workflows, social platform connections, video generation, provider keys, and workspace activity.
           </p>
           <p className="mt-4 text-sm text-slate-500">Last updated: April 13, 2026</p>
         </section>
