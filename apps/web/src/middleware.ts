@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/register'];
+const PUBLIC_PATHS = ['/', '/login', '/register', '/privacy', '/terms'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,13 +17,6 @@ export function middleware(request: NextRequest) {
 
   // Check for auth token in cookies or localStorage (cookie takes precedence)
   const token = request.cookies.get('agentos-token')?.value;
-
-  // If no token cookie, we can't check localStorage server-side.
-  // The client-side AppShell handles the localStorage fallback.
-  // But we can redirect on root path when no cookie present.
-  if (!token && pathname === '/') {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
 
   return NextResponse.next();
 }
