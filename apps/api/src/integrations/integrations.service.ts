@@ -133,16 +133,16 @@ export class IntegrationsService {
       throw new BadRequestException(`OAuth not configured for ${platform}. Set ${platform.toUpperCase()}_CLIENT_ID env var.`);
     }
 
-    const codeVerifier = platform === 'x' ? this.createCodeVerifier() : undefined;
+    const needsPkce = platform === 'x' || platform === 'tiktok';
+    const codeVerifier = needsPkce ? this.createCodeVerifier() : undefined;
     const state = this.createState(userId, platform, codeVerifier ? { codeVerifier } : {});
 
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      scope: config.scopes.join(' '),
-      response_type: 'code',
-      state,
-    });
+    const params = new URLSearchParams();
+    params.set(platform === 'tiktok' ? 'client_key' : 'client_id', config.clientId);
+    params.set('redirect_uri', config.redirectUri);
+    params.set('scope', platform === 'tiktok' ? config.scopes.join(',') : config.scopes.join(' '));
+    params.set('response_type', 'code');
+    params.set('state', state);
 
     if (platform === 'youtube') {
       params.set('access_type', 'offline');
@@ -150,7 +150,7 @@ export class IntegrationsService {
       params.set('include_granted_scopes', 'true');
     }
 
-    if (platform === 'x' && codeVerifier) {
+    if (needsPkce && codeVerifier) {
       params.set('code_challenge', this.createCodeChallenge(codeVerifier));
       params.set('code_challenge_method', 'S256');
     }
@@ -168,17 +168,25 @@ export class IntegrationsService {
       grant_type: 'authorization_code',
       code,
       redirect_uri: config.redirectUri,
-      client_id: config.clientId,
     });
     const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' };
 
     if (platform === 'x') {
+      tokenBody.set('client_id', config.clientId);
       if (!stateData.codeVerifier) {
         throw new BadRequestException('Missing X OAuth code verifier');
       }
       tokenBody.set('code_verifier', stateData.codeVerifier);
       tokenHeaders.Authorization = `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`;
+    } else if (platform === 'tiktok') {
+      tokenBody.set('client_key', config.clientId);
+      tokenBody.set('client_secret', config.clientSecret);
+      if (!stateData.codeVerifier) {
+        throw new BadRequestException('Missing TikTok OAuth code verifier');
+      }
+      tokenBody.set('code_verifier', stateData.codeVerifier);
     } else {
+      tokenBody.set('client_id', config.clientId);
       tokenBody.set('client_secret', config.clientSecret);
     }
 
